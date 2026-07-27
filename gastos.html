@@ -331,6 +331,14 @@
             box-shadow: 0 0 0 3px rgba(37,99,235,0.13);
         }
 
+        .is-hidden { display: none !important; }
+
+        .category-tools {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 4px;
+        }
+
         .radio-toggle {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -473,20 +481,6 @@
         .ghost-button { border: 1px solid var(--line-strong); background: #FFFFFF; color: var(--text); }
         .primary-button { border: 0; background: var(--primary); color: #FFFFFF; box-shadow: 0 8px 18px rgba(37,99,235,0.22); }
         .danger-button { border: 1px solid #FECACA; background: #FEF2F2; color: var(--danger); }
-
-        .install-button {
-            min-height: 42px;
-            border: 1px solid #BFDBFE;
-            border-radius: var(--radius);
-            background: #EFF6FF;
-            color: var(--primary);
-            box-shadow: var(--shadow);
-            padding: 9px 12px;
-            cursor: pointer;
-            font-weight: 800;
-        }
-
-        .install-button[hidden] { display: none; }
 
         .filters-grid {
             display: grid;
@@ -646,7 +640,7 @@
 
             .topbar { flex-direction: column; }
             .app-brand { align-items: flex-start; }
-            .top-actions, .bcv-badge, .user-chip, .install-button { width: 100%; }
+            .top-actions, .bcv-badge, .user-chip { width: 100%; }
             .bcv-badge, .user-chip { justify-content: space-between; }
             .expense-form { grid-template-columns: 1fr; }
             .form-row, .money-grid, .responsables, .filters-grid, .summary-grid { grid-template-columns: 1fr; }
@@ -686,7 +680,6 @@
             <div class="top-actions">
                 <div class="user-chip"><span>Usuario</span><strong id="userEmail">Validando...</strong></div>
                 <button class="bcv-badge" id="bcvBadge" type="button" title="Editar tasa BCV"><span>Tasa BCV En Vivo</span><strong id="bcvValue">Cargando...</strong></button>
-                <button class="install-button" type="button" data-install-app>Instalar app</button>
                 <button class="danger-button" id="logoutButton" type="button">Salir</button>
             </div>
         </header>
@@ -703,15 +696,29 @@
                     <span>Registro con comprobante</span>
                 </div>
 
-                <form class="expense-form" id="expenseForm">
+                <form class="expense-form" id="expenseForm" novalidate>
                     <div class="form-row form-section--meta">
                         <div class="field">
                             <label for="fecha">Fecha</label>
                             <input id="fecha" name="fecha" type="date" required>
                         </div>
                         <div class="field">
-                            <label for="categoria">Categoría / Ítem</label>
+                            <label for="categoria">Categoría principal</label>
                             <select id="categoria" name="categoria" required><option value="">Cargando categorías...</option></select>
+                            <div class="category-tools">
+                                <button class="danger-button is-hidden" id="deleteCategoryButton" type="button">Eliminar categoría guardada</button>
+                            </div>
+                        </div>
+                        <div class="field is-hidden" id="vehiculoDetalleField">
+                            <label for="vehiculoDetalle">Detalle vehículo</label>
+                            <select id="vehiculoDetalle" name="vehiculo_detalle">
+                                <option value="">Selecciona el detalle</option>
+                                <option value="GASOLINA">Gasolina</option>
+                                <option value="PIEZA MECANICA">Pieza mecánica</option>
+                                <option value="CAMBIO DE ACEITE">Cambio de aceite</option>
+                                <option value="SERVICIOS">Servicios</option>
+                                <option value="MANO DE OBRA">Mano de obra</option>
+                            </select>
                         </div>
                     </div>
 
@@ -817,8 +824,8 @@
         </section>
     </main>
 
-    <script src="supabase-config.js"></script>
-    <script src="app-install.js"></script>
-    <script src="gastos.js"></script>
+    <script src="supabase-config.js?v=5"></script>
+    <script src="app-install.js?v=5"></script>
+    <script src="gastos.js?v=5"></script>
 </body>
 </html>

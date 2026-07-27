@@ -1,10 +1,22 @@
 const NEW_CATEGORY_VALUE = "__new_category__";
+const TEMP_CATEGORY_VALUE = "__temp_category__";
+const STATIC_CATEGORY_PREFIX = "static:";
 const BCV_RATE_STORAGE_KEY = "gastos_operativos_tasa_bcv";
+const BASE_CATEGORIES = ["COMIDA", "HERRAMIENTAS", "MATERIALES", "EQUIPOS", "INSUMOS", "VEHICULOS"];
+const HIDDEN_SEEDED_CATEGORIES = [
+    "Gasolina",
+    "Cambio de Aceite / Filtros",
+    "Reparación / Pieza Mecánica",
+    "Mano de Obra",
+    "Comida / Viáticos",
+    "Herramientas / Insumos"
+];
 
 const state = {
     tasaBcv: 0,
     categorias: [],
     selectedFile: null,
+    tempCategory: null,
     syncingMoney: false,
     currentUser: null,
     historyRows: []
@@ -14,6 +26,9 @@ const elements = {
     form: document.querySelector("#expenseForm"),
     fecha: document.querySelector("#fecha"),
     categoria: document.querySelector("#categoria"),
+    deleteCategoryButton: document.querySelector("#deleteCategoryButton"),
+    vehiculoDetalleField: document.querySelector("#vehiculoDetalleField"),
+    vehiculoDetalle: document.querySelector("#vehiculoDetalle"),
     montoUsd: document.querySelector("#montoUsd"),
     montoVes: document.querySelector("#montoVes"),
     monedaUsd: document.querySelector("#monedaUsd"),
@@ -73,6 +88,12 @@ function bindEvents() {
     elements.logoutButton.addEventListener("click", logout);
     elements.bcvBadge.addEventListener("click", editBcvRate);
     elements.categoria.addEventListener("change", handleCategoryChange);
+    elements.deleteCategoryButton.addEventListener("click", deleteSelectedCategory);
+    elements.vehiculoDetalle.addEventListener("change", () => {
+        if (elements.categoria.value) {
+            elements.categoria.dataset.previous = elements.categoria.value;
+        }
+    });
     elements.montoUsd.addEventListener("input", () => syncMoney("USD"));
     elements.montoVes.addEventListener("input", () => syncMoney("VES"));
     elements.form.addEventListener("submit", saveExpense);
@@ -221,69 +242,185 @@ async function loadCategorias(selectedId = "") {
 }
 
 function renderCategorias(selectedId = "") {
+    const savedCategories = state.categorias.filter((categoria) => !isHiddenSeededCategory(categoria.nombre));
     const options = [
         '<option value="">Selecciona una categoría</option>',
-        ...state.categorias.map((categoria) => `<option value="${escapeHtml(categoria.id)}">${escapeHtml(categoria.nombre)}</option>`),
-        `<option value="${NEW_CATEGORY_VALUE}">+ Crear nuevo ítem/categoría...</option>`
+        '<optgroup label="Categorías principales">',
+        ...BASE_CATEGORIES.map((categoria) => `<option value="${STATIC_CATEGORY_PREFIX}${escapeHtml(categoria)}">${escapeHtml(categoria)}</option>`),
+        '</optgroup>'
     ];
+
+    if (state.tempCategory) {
+        options.push('<optgroup label="Ítem temporal">');
+        options.push(`<option value="${TEMP_CATEGORY_VALUE}">${escapeHtml(state.tempCategory.nombre)}</option>`);
+        options.push('</optgroup>');
+    }
+
+    if (savedCategories.length) {
+        options.push('<optgroup label="Categorías guardadas">');
+        options.push(...savedCategories.map((categoria) => `<option value="${escapeHtml(categoria.id)}">${escapeHtml(categoria.nombre)}</option>`));
+        options.push('</optgroup>');
+    }
+
+    options.push(`<option value="${NEW_CATEGORY_VALUE}">+ Otro ítem temporal o permanente...</option>`);
 
     elements.categoria.innerHTML = options.join("");
     elements.categoria.value = selectedId;
+    updateVehicleDetailVisibility();
+    updateCategoryActions();
 }
 
 async function handleCategoryChange() {
     if (elements.categoria.value === NEW_CATEGORY_VALUE) {
         await createCategoryModal();
+        return;
     }
+
+    elements.categoria.dataset.previous = elements.categoria.value;
+    updateVehicleDetailVisibility();
+    updateCategoryActions();
 }
 
 async function createCategoryModal() {
-    const previousValue = state.categorias.some((categoria) => categoria.id === elements.categoria.dataset.previous)
+    const previousValue = isKnownCategoryValue(elements.categoria.dataset.previous)
         ? elements.categoria.dataset.previous
         : "";
 
     const result = await Swal.fire({
-        title: "Nuevo ítem/categoría",
-        input: "text",
-        inputPlaceholder: "Nombre de la categoría",
+        title: "Otro ítem/categoría",
+        html: `
+            <input id="swalCategoryName" class="swal2-input" placeholder="Ej. Ferretería, repuesto puntual, comida especial">
+        `,
         focusConfirm: false,
         showCancelButton: true,
-        confirmButtonText: "Crear",
+        confirmButtonText: "Usar ítem",
         cancelButtonText: "Cancelar",
-        inputValidator: (value) => {
-            const nombre = value.trim();
+        preConfirm: () => {
+            const nombre = document.querySelector("#swalCategoryName").value.trim();
             if (!nombre) {
-                return "Ingresa el nombre de la categoría.";
+                Swal.showValidationMessage("Ingresa el nombre del ítem o categoría.");
+                return false;
             }
 
-            return null;
+            return { nombre };
         }
     });
 
     if (!result.isConfirmed) {
         elements.categoria.value = previousValue;
+        updateVehicleDetailVisibility();
+        updateCategoryActions();
         return;
     }
 
-    const { data, error } = await supabaseClient
-        .from("categorias_gastos")
-        .insert({ nombre: result.value.trim() })
-        .select("id")
-        .single();
-
-    if (error) {
-        console.error(error);
-        await Swal.fire({ icon: "error", title: "No se pudo crear", text: error.message });
-        elements.categoria.value = previousValue;
-        return;
-    }
-
-    await loadCategorias(data.id);
-    await Swal.fire({ icon: "success", title: "Categoría creada", timer: 1300, showConfirmButton: false });
+    state.tempCategory = { id: null, nombre: result.value.nombre };
+    renderCategorias(TEMP_CATEGORY_VALUE);
+    elements.categoria.dataset.previous = TEMP_CATEGORY_VALUE;
+    await Swal.fire({ icon: "success", title: "Ítem temporal listo", text: "Después de guardar el gasto te preguntaré si deseas conservarlo como categoría fija.", timer: 1800, showConfirmButton: false });
 }
 
 function getSelectedCategory() {
-    return state.categorias.find((categoria) => categoria.id === elements.categoria.value) || null;
+    const value = elements.categoria.value;
+
+    if (value.startsWith(STATIC_CATEGORY_PREFIX)) {
+        const nombre = value.replace(STATIC_CATEGORY_PREFIX, "");
+        if (nombre === "VEHICULOS" && elements.vehiculoDetalle.value) {
+            return { id: null, nombre: `${nombre} - ${elements.vehiculoDetalle.value}` };
+        }
+
+        return { id: null, nombre };
+    }
+
+    if (value === TEMP_CATEGORY_VALUE && state.tempCategory) {
+        return state.tempCategory;
+    }
+
+    return state.categorias.find((categoria) => categoria.id === value) || null;
+}
+
+function isKnownCategoryValue(value = "") {
+    if (!value) return false;
+    if (value === TEMP_CATEGORY_VALUE && state.tempCategory) return true;
+    if (value.startsWith(STATIC_CATEGORY_PREFIX)) return BASE_CATEGORIES.includes(value.replace(STATIC_CATEGORY_PREFIX, ""));
+    return state.categorias.some((categoria) => categoria.id === value);
+}
+
+function isHiddenSeededCategory(nombre = "") {
+    const normalizedName = normalizeCategoryName(nombre);
+    return HIDDEN_SEEDED_CATEGORIES.some((hiddenName) => normalizeCategoryName(hiddenName) === normalizedName);
+}
+
+function normalizeCategoryName(nombre = "") {
+    return nombre
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase();
+}
+
+function updateVehicleDetailVisibility() {
+    const isVehicle = elements.categoria.value === `${STATIC_CATEGORY_PREFIX}VEHICULOS`;
+    elements.vehiculoDetalleField.classList.toggle("is-hidden", !isVehicle);
+
+    if (!isVehicle) {
+        elements.vehiculoDetalle.value = "";
+    }
+}
+
+function updateCategoryActions() {
+    const selectedSavedCategory = getPersistedSelectedCategory();
+    elements.deleteCategoryButton.classList.toggle("is-hidden", !selectedSavedCategory);
+}
+
+function getPersistedSelectedCategory() {
+    const value = elements.categoria.value;
+    if (!value || value === NEW_CATEGORY_VALUE || value === TEMP_CATEGORY_VALUE || value.startsWith(STATIC_CATEGORY_PREFIX)) {
+        return null;
+    }
+
+    return state.categorias.find((categoria) => categoria.id === value) || null;
+}
+
+async function deleteSelectedCategory() {
+    const selectedSavedCategory = getPersistedSelectedCategory();
+    if (!selectedSavedCategory) return;
+
+    const result = await Swal.fire({
+        icon: "warning",
+        title: "Eliminar categoría guardada",
+        text: `Se eliminará "${selectedSavedCategory.nombre}" del selector. Los gastos históricos conservarán el texto de la categoría.`,
+        showCancelButton: true,
+        confirmButtonText: "Eliminar",
+        cancelButtonText: "Cancelar",
+        confirmButtonColor: "#DC2626"
+    });
+
+    if (!result.isConfirmed) return;
+
+    elements.deleteCategoryButton.disabled = true;
+
+    try {
+        const { data, error } = await supabaseClient
+            .from("categorias_gastos")
+            .delete()
+            .eq("id", selectedSavedCategory.id)
+            .select("id");
+
+        if (error) throw error;
+        if (!data || data.length === 0) {
+            throw new Error("Supabase no eliminó la categoría. Revisa que exista la política DELETE para categorias_gastos.");
+        }
+
+        await loadCategorias();
+        await Swal.fire({ icon: "success", title: "Categoría eliminada", timer: 1300, showConfirmButton: false });
+    } catch (error) {
+        console.error(error);
+        await Swal.fire({ icon: "error", title: "No se pudo eliminar", text: error.message });
+    } finally {
+        elements.deleteCategoryButton.disabled = false;
+        updateCategoryActions();
+    }
 }
 
 function syncMoney(source) {
@@ -348,8 +485,21 @@ async function saveExpense(event) {
     const responsable = document.querySelector('input[name="responsable"]:checked')?.value;
     const moneda = document.querySelector('input[name="moneda"]:checked')?.value;
 
+    if (!elements.fecha.value) {
+        await Swal.fire({ icon: "warning", title: "Fecha requerida", text: "Selecciona la fecha del gasto." });
+        elements.fecha.focus();
+        return;
+    }
+
     if (!selectedCategory) {
-        await Swal.fire({ icon: "warning", title: "Selecciona una categoría" });
+        await Swal.fire({ icon: "warning", title: "Categoría requerida", text: "Selecciona una categoría o crea una nueva antes de guardar." });
+        elements.categoria.focus();
+        return;
+    }
+
+    if (elements.categoria.value === `${STATIC_CATEGORY_PREFIX}VEHICULOS` && !elements.vehiculoDetalle.value) {
+        await Swal.fire({ icon: "warning", title: "Detalle de vehículo requerido", text: "Selecciona si fue gasolina, pieza mecánica, cambio de aceite, servicios o mano de obra." });
+        elements.vehiculoDetalle.focus();
         return;
     }
 
@@ -362,7 +512,7 @@ async function saveExpense(event) {
         user_id: state.currentUser.id,
         user_email: state.currentUser.email,
         fecha: elements.fecha.value,
-        categoria_id: selectedCategory.id,
+        categoria_id: selectedCategory.id || null,
         categoria_nombre: selectedCategory.nombre,
         numero_factura: cleanText(elements.numeroFactura.value),
         moneda,
@@ -376,6 +526,7 @@ async function saveExpense(event) {
 
     if (!payload.monto_usd && !payload.monto_ves) {
         await Swal.fire({ icon: "warning", title: "Monto requerido", text: "Ingresa el monto en USD o VES." });
+        elements.montoUsd.focus();
         return;
     }
 
@@ -386,10 +537,14 @@ async function saveExpense(event) {
             payload.comprobante_url = await uploadReceipt(state.selectedFile);
         }
 
-        const { error } = await supabaseClient.from("gastos_operativos").insert(payload);
+        const { data: insertedExpense, error } = await supabaseClient
+            .from("gastos_operativos")
+            .insert(payload)
+            .select("id")
+            .single();
         if (error) throw error;
 
-        await Swal.fire({ icon: "success", title: "Gasto guardado", timer: 1400, showConfirmButton: false });
+        await handlePostSaveCategoryPersistence(insertedExpense?.id);
         elements.form.reset();
         resetFormState();
         await loadHistorico();
@@ -400,6 +555,64 @@ async function saveExpense(event) {
     } finally {
         setSubmitting(false);
     }
+}
+
+async function handlePostSaveCategoryPersistence(expenseId) {
+    if (!state.tempCategory) {
+        await Swal.fire({ icon: "success", title: "Gasto guardado", timer: 1400, showConfirmButton: false });
+        return;
+    }
+
+    const categoryName = state.tempCategory.nombre;
+    const result = await Swal.fire({
+        icon: "question",
+        title: "Gasto guardado",
+        text: `¿Deseas guardar "${categoryName}" como categoría fija para futuros gastos?`,
+        showDenyButton: true,
+        confirmButtonText: "Sí, guardar categoría",
+        denyButtonText: "No, solo este gasto"
+    });
+
+    if (!result.isConfirmed) {
+        return;
+    }
+
+    try {
+        const persistedCategory = await persistCategory(categoryName);
+
+        if (expenseId && persistedCategory?.id) {
+            const { error } = await supabaseClient
+                .from("gastos_operativos")
+                .update({ categoria_id: persistedCategory.id })
+                .eq("id", expenseId);
+
+            if (error) throw error;
+        }
+
+        await Swal.fire({ icon: "success", title: "Categoría guardada", timer: 1300, showConfirmButton: false });
+    } catch (error) {
+        console.error(error);
+        await Swal.fire({ icon: "warning", title: "Gasto guardado", text: `El gasto se guardó, pero no pude conservar "${categoryName}" como categoría fija. ${error.message}` });
+    }
+}
+
+async function persistCategory(nombre) {
+    const existingCategory = state.categorias.find((categoria) => normalizeCategoryName(categoria.nombre) === normalizeCategoryName(nombre));
+
+    if (existingCategory) {
+        return existingCategory;
+    }
+
+    const { data, error } = await supabaseClient
+        .from("categorias_gastos")
+        .insert({ nombre })
+        .select("id,nombre")
+        .single();
+
+    if (error) throw error;
+
+    state.categorias = [...state.categorias, data];
+    return data;
 }
 
 async function uploadReceipt(file) {
@@ -648,6 +861,10 @@ function setPeriodDates(period) {
 function resetFormState() {
     elements.fecha.value = toDateInput(new Date());
     elements.monedaUsd.checked = true;
+    state.tempCategory = null;
+    renderCategorias();
+    elements.vehiculoDetalle.value = "";
+    updateVehicleDetailVisibility();
     state.selectedFile = null;
     elements.comprobanteInput.value = "";
     elements.filePreview.classList.remove("is-visible");

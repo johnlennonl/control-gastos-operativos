@@ -1,7 +1,7 @@
 {
   "name": "Control de Gastos Operativos",
   "short_name": "Gastos",
-  "description": "Modulo privado para control de gastos operativos, caja chica, comprobantes y reportes.",
+  "description": "Modulo privado para control de gastos operativos, comprobantes y reportes.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

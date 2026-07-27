@@ -1,10 +1,5 @@
-const CACHE_NAME = "control-gastos-v1";
+const CACHE_NAME = "control-gastos-v5";
 const APP_ASSETS = [
-  "./",
-  "./index.html",
-  "./gastos.html",
-  "./gastos.js",
-  "./supabase-config.js",
   "./manifest.webmanifest",
   "./image.png"
 ];
@@ -32,17 +27,18 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  event.respondWith(
-    caches.match(request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
+  if (request.destination === "document" || request.destination === "script" || request.destination === "style") {
+    event.respondWith(fetch(request).catch(() => caches.match(request)));
+    return;
+  }
 
-      return fetch(request).then((networkResponse) => {
+  event.respondWith(
+    fetch(request)
+      .then((networkResponse) => {
         const responseClone = networkResponse.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(request, responseClone));
         return networkResponse;
-      });
-    })
+      })
+      .catch(() => caches.match(request))
   );
 });

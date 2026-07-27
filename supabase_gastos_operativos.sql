@@ -6,12 +6,12 @@ create table if not exists public.categorias_gastos (
 );
 
 insert into public.categorias_gastos (nombre) values
-    ('Gasolina'),
-    ('Cambio de Aceite / Filtros'),
-    ('Reparación / Pieza Mecánica'),
-    ('Mano de Obra'),
-    ('Comida / Viáticos'),
-    ('Herramientas / Insumos')
+    ('COMIDA'),
+    ('HERRAMIENTAS'),
+    ('MATERIALES'),
+    ('EQUIPOS'),
+    ('INSUMOS'),
+    ('VEHICULOS')
 on conflict (nombre) do nothing;
 
 create table if not exists public.gastos_operativos (
@@ -63,6 +63,12 @@ create policy "Usuarios autenticados crean categorias"
 on public.categorias_gastos for insert
 to authenticated
 with check (true);
+
+drop policy if exists "Usuarios autenticados eliminan categorias" on public.categorias_gastos;
+create policy "Usuarios autenticados eliminan categorias"
+on public.categorias_gastos for delete
+to authenticated
+using (true);
 
 drop policy if exists "Usuarios autenticados ven historico operativo" on public.gastos_operativos;
 create policy "Usuarios autenticados ven historico operativo"
