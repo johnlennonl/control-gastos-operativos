@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Control de Gastos Operativos</title>
+    <meta name="theme-color" content="#2563EB">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Gastos">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="apple-touch-icon" href="image.png">
     <link rel="icon" type="image/png" href="image.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -468,6 +474,20 @@
         .primary-button { border: 0; background: var(--primary); color: #FFFFFF; box-shadow: 0 8px 18px rgba(37,99,235,0.22); }
         .danger-button { border: 1px solid #FECACA; background: #FEF2F2; color: var(--danger); }
 
+        .install-button {
+            min-height: 42px;
+            border: 1px solid #BFDBFE;
+            border-radius: var(--radius);
+            background: #EFF6FF;
+            color: var(--primary);
+            box-shadow: var(--shadow);
+            padding: 9px 12px;
+            cursor: pointer;
+            font-weight: 800;
+        }
+
+        .install-button[hidden] { display: none; }
+
         .filters-grid {
             display: grid;
             grid-template-columns: 1.2fr 1fr 1fr;
@@ -626,7 +646,7 @@
 
             .topbar { flex-direction: column; }
             .app-brand { align-items: flex-start; }
-            .top-actions, .bcv-badge, .user-chip { width: 100%; }
+            .top-actions, .bcv-badge, .user-chip, .install-button { width: 100%; }
             .bcv-badge, .user-chip { justify-content: space-between; }
             .expense-form { grid-template-columns: 1fr; }
             .form-row, .money-grid, .responsables, .filters-grid, .summary-grid { grid-template-columns: 1fr; }
@@ -666,6 +686,7 @@
             <div class="top-actions">
                 <div class="user-chip"><span>Usuario</span><strong id="userEmail">Validando...</strong></div>
                 <button class="bcv-badge" id="bcvBadge" type="button" title="Editar tasa BCV"><span>Tasa BCV En Vivo</span><strong id="bcvValue">Cargando...</strong></button>
+                <button class="install-button" type="button" data-install-app>Instalar app</button>
                 <button class="danger-button" id="logoutButton" type="button">Salir</button>
             </div>
         </header>
@@ -797,6 +818,7 @@
     </main>
 
     <script src="supabase-config.js"></script>
+    <script src="app-install.js"></script>
     <script src="gastos.js"></script>
 </body>
 </html>

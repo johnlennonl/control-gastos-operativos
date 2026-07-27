@@ -4,6 +4,12 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Acceso | Control de Gastos</title>
+	<meta name="theme-color" content="#2563EB">
+	<meta name="apple-mobile-web-app-capable" content="yes">
+	<meta name="apple-mobile-web-app-title" content="Gastos">
+	<meta name="apple-mobile-web-app-status-bar-style" content="default">
+	<link rel="manifest" href="manifest.webmanifest">
+	<link rel="apple-touch-icon" href="image.png">
 	<link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="icon" type="image/png" href="image.png">
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -103,6 +109,34 @@
 			font-weight: 700;
 		}
 
+		.topbar-tools {
+			display: inline-flex;
+			align-items: center;
+			gap: 10px;
+			flex-wrap: wrap;
+			justify-content: flex-end;
+		}
+
+		.install-button {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			min-height: 36px;
+			border: 1px solid #BFDBFE;
+			border-radius: 999px;
+			background: #EFF6FF;
+			color: var(--primary);
+			padding: 8px 12px;
+			box-shadow: var(--shadow);
+			cursor: pointer;
+			font-size: 0.84rem;
+			font-weight: 800;
+		}
+
+		.install-button[hidden] {
+			display: none;
+		}
+
 		.status-dot {
 			width: 8px;
 			height: 8px;
@@ -125,6 +159,11 @@
 		.brand-panel {
 			display: grid;
 			gap: 24px;
+		}
+
+		.brand-intro {
+			display: grid;
+			gap: 18px;
 		}
 
 		.eyebrow {
@@ -346,6 +385,16 @@
 				padding: 16px 0;
 			}
 
+			.topbar-tools,
+			.topbar-status,
+			.install-button {
+				width: 100%;
+			}
+
+			.topbar-tools {
+				justify-content: stretch;
+			}
+
 			.login-shell {
 				grid-template-columns: 1fr;
 				align-content: start;
@@ -354,12 +403,25 @@
 				padding: 18px 0 30px;
 			}
 
-			.login-card {
-				order: 1;
+			.brand-panel {
+				display: contents;
 			}
 
-			.brand-panel {
+			.brand-intro {
+				order: 1;
+				gap: 14px;
+			}
+
+			.login-card {
 				order: 2;
+			}
+
+			.metrics-strip {
+				order: 3;
+			}
+
+			.assurance-panel {
+				order: 4;
 			}
 
 			h1 {
@@ -399,14 +461,19 @@
 				<span class="brand-logo"><img src="image.png" alt=""></span>
 				<span>Sistema de Control</span>
 			</div>
-			<div class="topbar-status"><span class="status-dot"></span>Acceso corporativo seguro</div>
+			<div class="topbar-tools">
+				<div class="topbar-status"><span class="status-dot"></span>Acceso corporativo seguro</div>
+				<button class="install-button" type="button" data-install-app>Instalar app</button>
+			</div>
 		</header>
 
 		<main class="login-shell">
 			<section class="brand-panel" aria-labelledby="loginTitle">
-				<p class="eyebrow">Caja chica y operaciones</p>
-				<h1 id="loginTitle">Control operativo de gastos</h1>
-				<p class="brand-copy">Registra comprobantes, convierte montos con tasa BCV y consolida reportes para revisión gerencial desde un flujo privado y ordenado.</p>
+				<div class="brand-intro">
+					<p class="eyebrow">Caja chica y operaciones</p>
+					<h1 id="loginTitle">Control operativo de gastos</h1>
+					<p class="brand-copy">Registra comprobantes, convierte montos con tasa BCV y consolida reportes para revisión gerencial desde un flujo privado y ordenado.</p>
+				</div>
 
 				<div class="metrics-strip" aria-label="Resumen de capacidades">
 					<div class="metric"><strong>Auth</strong><span>Usuarios autorizados</span></div>
@@ -448,6 +515,7 @@
 	</div>
 
 	<script src="supabase-config.js"></script>
+	<script src="app-install.js"></script>
 	<script>
 		const loginForm = document.querySelector("#loginForm");
 		const loginButton = document.querySelector("#loginButton");
