@@ -2,7 +2,13 @@ const NEW_CATEGORY_VALUE = "__new_category__";
 const TEMP_CATEGORY_VALUE = "__temp_category__";
 const STATIC_CATEGORY_PREFIX = "static:";
 const BCV_RATE_STORAGE_KEY = "gastos_operativos_tasa_bcv";
+const BCV_EUR_RATE_STORAGE_KEY = "gastos_operativos_tasa_bcv_eur";
+const BINANCE_RATE_STORAGE_KEY = "gastos_operativos_tasa_binance";
 const BCV_REFRESH_INTERVAL_MS = 30 * 60 * 1000;
+const PAYMENT_METHODS = {
+    USD: ["Efectivo", "USDT", "Zelle", "Binance"],
+    VES: ["Pago móvil", "Transferencia", "Punto de venta", "Efectivo Bs"]
+};
 const BASE_CATEGORIES = ["COMIDA", "HERRAMIENTAS", "MATERIALES", "EQUIPOS", "INSUMOS", "VEHICULOS"];
 const HIDDEN_SEEDED_CATEGORIES = [
     "Gasolina",
@@ -15,6 +21,8 @@ const HIDDEN_SEEDED_CATEGORIES = [
 
 const state = {
     tasaBcv: 0,
+    tasaBcvEur: 0,
+    tasaBinance: 0,
     categorias: [],
     selectedFile: null,
     tempCategory: null,
@@ -32,15 +40,23 @@ const elements = {
     vehiculoDetalle: document.querySelector("#vehiculoDetalle"),
     montoUsd: document.querySelector("#montoUsd"),
     montoVes: document.querySelector("#montoVes"),
+    moneySection: document.querySelector("#moneySection"),
+    moneyGrid: document.querySelector("#moneyGrid"),
+    moneySectionLabel: document.querySelector("#moneySectionLabel"),
+    montoUsdWrap: document.querySelector("#montoUsdWrap"),
+    montoVesWrap: document.querySelector("#montoVesWrap"),
+    montoBaseLabel: document.querySelector("#montoBaseLabel"),
+    rateSection: document.querySelector("#rateSection"),
     monedaUsd: document.querySelector("#monedaUsd"),
     monedaVes: document.querySelector("#monedaVes"),
+    formaPago: document.querySelector("#formaPago"),
+    tipoTasa: document.querySelector("#tipoTasa"),
+    tasaCambio: document.querySelector("#tasaCambio"),
     numeroFactura: document.querySelector("#numeroFactura"),
     descripcion: document.querySelector("#descripcion"),
     comprobanteInput: document.querySelector("#comprobanteInput"),
     dropZone: document.querySelector("#dropZone"),
     filePreview: document.querySelector("#filePreview"),
-    bcvBadge: document.querySelector("#bcvBadge"),
-    bcvValue: document.querySelector("#bcvValue"),
     historyList: document.querySelector("#historyList"),
     historyCount: document.querySelector("#historyCount"),
     submitButton: document.querySelector("#submitButton"),
@@ -54,16 +70,29 @@ const elements = {
     totalUsd: document.querySelector("#totalUsd"),
     totalVes: document.querySelector("#totalVes"),
     totalReceipts: document.querySelector("#totalReceipts"),
+    pageLoader: document.querySelector("#pageLoader"),
     tabButtons: document.querySelectorAll(".module-tab"),
     modulePanels: document.querySelectorAll(".module-panel")
 };
 
 document.addEventListener("DOMContentLoaded", init);
 
+function showPageLoader() {
+    elements.pageLoader.classList.add("is-visible");
+    elements.pageLoader.setAttribute("aria-hidden", "false");
+}
+
+function hidePageLoader() {
+    elements.pageLoader.classList.remove("is-visible");
+    elements.pageLoader.setAttribute("aria-hidden", "true");
+}
+
 async function init() {
+    showPageLoader();
     const { data, error } = await supabaseClient.auth.getSession();
 
     if (error || !data.session) {
+        showPageLoader();
         window.location.href = "index.html";
         return;
     }
@@ -71,17 +100,23 @@ async function init() {
     state.currentUser = data.session.user;
     elements.userEmail.textContent = state.currentUser.email || "Usuario activo";
     elements.fecha.value = toDateInput(new Date());
+    state.tasaBinance = Number(localStorage.getItem(BINANCE_RATE_STORAGE_KEY)) || 0;
+    renderPaymentMethods("USD");
+    syncPaymentMode();
+    syncRateTypeToPayment(false);
 
     bindEvents();
     setPeriodDates("month");
 
     await Promise.all([
         loadBcvRate(),
+        loadBcvEuroRate(),
         loadCategorias(),
         loadHistorico()
     ]);
 
     setupBcvAutoRefresh();
+    hidePageLoader();
 }
 
 function bindEvents() {
@@ -89,7 +124,6 @@ function bindEvents() {
         button.addEventListener("click", () => activateTab(button.dataset.tabTarget));
     });
     elements.logoutButton.addEventListener("click", logout);
-    elements.bcvBadge.addEventListener("click", editBcvRate);
     elements.categoria.addEventListener("change", handleCategoryChange);
     elements.deleteCategoryButton.addEventListener("click", deleteSelectedCategory);
     elements.vehiculoDetalle.addEventListener("change", () => {
@@ -97,6 +131,11 @@ function bindEvents() {
             elements.categoria.dataset.previous = elements.categoria.value;
         }
     });
+    elements.monedaUsd.addEventListener("change", handleCurrencyModeChange);
+    elements.monedaVes.addEventListener("change", handleCurrencyModeChange);
+    elements.formaPago.addEventListener("change", handlePaymentMethodChange);
+    elements.tipoTasa.addEventListener("change", handleRateTypeChange);
+    elements.tasaCambio.addEventListener("input", handleRateInput);
     elements.montoUsd.addEventListener("input", () => syncMoney("USD"));
     elements.montoVes.addEventListener("input", () => syncMoney("VES"));
     elements.form.addEventListener("submit", saveExpense);
@@ -160,16 +199,21 @@ function activateTab(target) {
 }
 
 async function logout() {
+    showPageLoader();
     await supabaseClient.auth.signOut();
     window.location.href = "index.html";
 }
 
 function setupBcvAutoRefresh() {
-    setInterval(() => loadBcvRate({ silent: true }), BCV_REFRESH_INTERVAL_MS);
+    setInterval(() => {
+        loadBcvRate({ silent: true });
+        loadBcvEuroRate({ silent: true });
+    }, BCV_REFRESH_INTERVAL_MS);
 
     document.addEventListener("visibilitychange", () => {
         if (!document.hidden) {
             loadBcvRate({ silent: true });
+            loadBcvEuroRate({ silent: true });
         }
     });
 }
@@ -199,42 +243,232 @@ async function loadBcvRate(options = {}) {
             return;
         }
 
-        await editBcvRate("No pude consultar la tasa BCV en vivo. Cárgala manualmente para continuar.");
+        return;
+    }
+}
+
+async function loadBcvEuroRate(options = {}) {
+    const { silent = false } = options;
+    const savedRate = Number(localStorage.getItem(BCV_EUR_RATE_STORAGE_KEY));
+
+    if (Number.isFinite(savedRate) && savedRate > 0) {
+        setBcvEuroRate(savedRate);
+    }
+
+    try {
+        const response = await fetch("https://ve.dolarapi.com/v1/euros/oficial", { cache: "no-store" });
+        if (!response.ok) throw new Error("No se pudo consultar la tasa oficial del euro.");
+
+        const data = await response.json();
+        const rate = Number(data.promedio);
+        if (!Number.isFinite(rate) || rate <= 0) throw new Error("La tasa BCV Euro recibida no es válida.");
+
+        setBcvEuroRate(rate);
+        localStorage.setItem(BCV_EUR_RATE_STORAGE_KEY, String(rate));
+    } catch (error) {
+        console.error(error);
+
+        if (state.tasaBcvEur > 0 || silent) {
+            return;
+        }
+
+        return;
+    }
+}
+
+function setBcvEuroRate(rate) {
+    state.tasaBcvEur = Number(rate) || 0;
+    if (elements.tipoTasa.value === "BCV_EUR") {
+        updateRateField();
     }
 }
 
 function setBcvRate(rate) {
     state.tasaBcv = Number(rate) || 0;
-    elements.bcvValue.textContent = state.tasaBcv > 0 ? `${formatNumber(state.tasaBcv, 4)} Bs` : "Sin tasa";
+    if (elements.tipoTasa.value === "BCV_USD" || elements.tipoTasa.value === "BCV") {
+        updateRateField();
+    }
 
-    if (elements.montoUsd.value) {
-        syncMoney("USD");
-    } else if (elements.montoVes.value) {
-        syncMoney("VES");
+    syncCurrentMoney();
+}
+
+function handleCurrencyModeChange() {
+    const moneda = getSelectedCurrency();
+    renderPaymentMethods(moneda);
+    syncPaymentMode();
+    syncRateTypeToPayment();
+}
+
+function handlePaymentMethodChange() {
+    syncPaymentMode();
+    syncRateTypeToPayment();
+}
+
+function handleRateTypeChange() {
+    if (getSelectedCurrency() !== "VES" && elements.tipoTasa.value === "BINANCE") {
+        elements.tipoTasa.value = "BCV_USD";
+    }
+
+    updateRateField();
+}
+
+function handleRateInput() {
+    const rate = parseCurrency(elements.tasaCambio.value);
+
+    syncCurrentMoney();
+}
+
+function renderPaymentMethods(moneda, preferredValue = elements.formaPago.value) {
+    const methods = PAYMENT_METHODS[moneda] || [];
+    elements.formaPago.innerHTML = methods.map((method) => `<option value="${escapeAttribute(method)}">${escapeHtml(method)}</option>`).join("");
+
+    if (methods.includes(preferredValue)) {
+        elements.formaPago.value = preferredValue;
     }
 }
 
-async function editBcvRate(message = "") {
-    const result = await Swal.fire({
-        title: "Editar Tasa BCV",
-        text: message,
-        input: "number",
-        inputValue: state.tasaBcv || "",
-        inputAttributes: { min: "0", step: "0.0001" },
-        showCancelButton: true,
-        confirmButtonText: "Actualizar",
-        cancelButtonText: "Cancelar",
-        inputValidator: (value) => {
-            const rate = Number(value);
-            if (!Number.isFinite(rate) || rate <= 0) return "Ingresa una tasa mayor a cero.";
-            return null;
-        }
-    });
+function getAllPaymentMethods() {
+    return [...new Set([...PAYMENT_METHODS.USD, ...PAYMENT_METHODS.VES])];
+}
 
-    if (result.isConfirmed) {
-        const rate = Number(result.value);
-        setBcvRate(rate);
-        localStorage.setItem(BCV_RATE_STORAGE_KEY, String(rate));
+function isUsdtPayment() {
+    return getSelectedCurrency() === "USD" && elements.formaPago.value === "USDT";
+}
+
+function syncRateTypeToPayment(syncAmounts = true) {
+    if (getSelectedCurrency() !== "VES") {
+        elements.tipoTasa.innerHTML = '<option value="DIRECTO">Pago directo</option>';
+        elements.tipoTasa.value = "DIRECTO";
+        elements.tasaCambio.value = "";
+        elements.tasaCambio.readOnly = true;
+        updateMoneyBaseLabel();
+        return;
+    }
+
+    const currentType = elements.tipoTasa.value;
+    const selectedType = ["BCV_EUR", "MANUAL"].includes(currentType) ? currentType : "BCV_USD";
+
+    renderRateTypeOptions(selectedType);
+    updateRateField(syncAmounts);
+}
+
+function renderRateTypeOptions(selectedType) {
+    const options = [
+        { value: "BCV_USD", label: "BCV Dólar" },
+        { value: "BCV_EUR", label: "BCV Euro" },
+        { value: "MANUAL", label: "Manual" }
+    ];
+
+    elements.tipoTasa.innerHTML = options
+        .map((option) => `<option value="${option.value}">${option.label}</option>`)
+        .join("");
+    elements.tipoTasa.value = selectedType;
+}
+
+function updateRateField(syncAmounts = true) {
+    const tipoTasa = elements.tipoTasa.value;
+
+    if (getSelectedCurrency() !== "VES") {
+        elements.tasaCambio.value = "";
+        elements.tasaCambio.readOnly = true;
+    } else if (tipoTasa === "BCV_USD" || tipoTasa === "BCV") {
+        elements.tasaCambio.value = state.tasaBcv > 0 ? state.tasaBcv.toFixed(4) : "";
+        elements.tasaCambio.readOnly = true;
+    } else if (tipoTasa === "BCV_EUR") {
+        elements.tasaCambio.value = state.tasaBcvEur > 0 ? state.tasaBcvEur.toFixed(4) : "";
+        elements.tasaCambio.readOnly = true;
+    } else if (tipoTasa === "MANUAL") {
+        elements.tasaCambio.readOnly = false;
+    } else if (tipoTasa === "BINANCE") {
+        elements.tasaCambio.value = state.tasaBinance > 0 ? state.tasaBinance.toFixed(4) : "";
+        elements.tasaCambio.readOnly = false;
+    } else {
+        elements.tasaCambio.value = "";
+        elements.tasaCambio.readOnly = false;
+    }
+
+    updateMoneyBaseLabel();
+
+    if (syncAmounts) {
+        syncCurrentMoney();
+    }
+}
+
+function getSelectedCurrency() {
+    return document.querySelector('input[name="moneda"]:checked')?.value || "USD";
+}
+
+function updateMoneyInputLock() {
+    const usdActive = getSelectedCurrency() === "USD";
+
+    elements.rateSection.classList.toggle("is-hidden", usdActive);
+    elements.moneySection.classList.toggle("is-direct", usdActive);
+    elements.moneyGrid.classList.toggle("is-single", usdActive);
+    elements.montoVesWrap.classList.toggle("is-hidden", usdActive);
+    elements.moneySectionLabel.textContent = usdActive ? "Monto pagado" : "Calculadora divisa / VES";
+    elements.montoUsd.readOnly = !usdActive;
+    elements.montoVes.readOnly = usdActive;
+    elements.montoUsdWrap.classList.toggle("is-calculated", !usdActive);
+    elements.montoVesWrap.classList.toggle("is-calculated", usdActive);
+
+    if (usdActive) {
+        elements.montoVes.value = "";
+    }
+}
+
+function updateMoneyBaseLabel() {
+    elements.montoBaseLabel.textContent = elements.tipoTasa.value === "BCV_EUR" && getSelectedCurrency() === "VES" ? "EUR" : "USD";
+}
+
+function syncPaymentMode() {
+    updateMoneyInputLock();
+    updateMoneyBaseLabel();
+}
+
+function getActiveRate() {
+    return parseCurrency(elements.tasaCambio.value);
+}
+
+function getRateTypeLabel(tipoTasa) {
+    const labels = {
+        BCV: "BCV Dólar",
+        BCV_USD: "BCV Dólar",
+        BCV_EUR: "BCV Euro",
+        BINANCE: "Binance / USDT",
+        DIRECTO: "Pago directo",
+        MANUAL: "Manual"
+    };
+
+    return labels[tipoTasa] || "BCV Dólar";
+}
+
+function normalizeRateType(tipoTasa) {
+    return tipoTasa === "BCV" || !tipoTasa ? "BCV_USD" : tipoTasa;
+}
+
+function getMoneyUnit(tipoTasa) {
+    return normalizeRateType(tipoTasa) === "BCV_EUR" ? "EUR" : "USD";
+}
+
+function getRateDisplay(row) {
+    if (row.tipo_tasa === "DIRECTO") {
+        return "Sin conversión";
+    }
+
+    return `${getRateTypeLabel(row.tipo_tasa)} · ${formatNumber(row.tasa_bcv, 4)}`;
+}
+
+function syncCurrentMoney() {
+    const moneda = getSelectedCurrency();
+
+    if (moneda === "USD" && elements.montoUsd.value) {
+        syncMoney("USD");
+    } else if (moneda === "VES" && elements.montoVes.value) {
+        syncMoney("VES");
+    } else if (elements.montoUsd.value) {
+        syncMoney("USD");
+    } else if (elements.montoVes.value) {
+        syncMoney("VES");
     }
 }
 
@@ -438,18 +672,33 @@ async function deleteSelectedCategory() {
 }
 
 function syncMoney(source) {
-    if (state.syncingMoney || state.tasaBcv <= 0) return;
+    if (state.syncingMoney) return;
 
     state.syncingMoney = true;
 
     if (source === "USD") {
-        const usd = parseCurrency(elements.montoUsd.value);
-        elements.montoVes.value = usd > 0 ? (usd * state.tasaBcv).toFixed(2) : "";
         elements.monedaUsd.checked = true;
+        renderPaymentMethods("USD");
+    } else {
+        elements.monedaVes.checked = true;
+        renderPaymentMethods("VES");
+    }
+
+    updateMoneyInputLock();
+    syncRateTypeToPayment(false);
+
+    const activeRate = getActiveRate();
+    if (activeRate <= 0) {
+        state.syncingMoney = false;
+        return;
+    }
+
+    if (source === "USD") {
+        const usd = parseCurrency(elements.montoUsd.value);
+        elements.montoVes.value = usd > 0 ? (usd * activeRate).toFixed(2) : "";
     } else {
         const ves = parseCurrency(elements.montoVes.value);
-        elements.montoUsd.value = ves > 0 ? (ves / state.tasaBcv).toFixed(2) : "";
-        elements.monedaVes.checked = true;
+        elements.montoUsd.value = ves > 0 ? (ves / activeRate).toFixed(2) : "";
     }
 
     state.syncingMoney = false;
@@ -497,7 +746,9 @@ async function saveExpense(event) {
 
     const selectedCategory = getSelectedCategory();
     const responsable = document.querySelector('input[name="responsable"]:checked')?.value;
-    const moneda = document.querySelector('input[name="moneda"]:checked')?.value;
+    const moneda = getSelectedCurrency();
+    const usesRate = moneda === "VES";
+    const activeRate = getActiveRate();
 
     if (!elements.fecha.value) {
         await Swal.fire({ icon: "warning", title: "Fecha requerida", text: "Selecciona la fecha del gasto." });
@@ -517,8 +768,24 @@ async function saveExpense(event) {
         return;
     }
 
-    if (state.tasaBcv <= 0) {
-        await Swal.fire({ icon: "warning", title: "Falta la tasa BCV", text: "Carga una tasa válida antes de guardar." });
+    if (usesRate && activeRate <= 0) {
+        await Swal.fire({ icon: "warning", title: "Falta la tasa", text: "Carga una tasa válida antes de guardar." });
+        elements.tasaCambio.focus();
+        return;
+    }
+
+    const montoDivisa = roundMoney(parseCurrency(elements.montoUsd.value));
+    const montoVes = usesRate ? roundMoney(parseCurrency(elements.montoVes.value)) : 0;
+
+    if (usesRate && !montoVes) {
+        await Swal.fire({ icon: "warning", title: "Monto requerido", text: "Ingresa el monto pagado en bolívares." });
+        elements.montoVes.focus();
+        return;
+    }
+
+    if (!usesRate && !montoDivisa) {
+        await Swal.fire({ icon: "warning", title: "Monto requerido", text: "Ingresa el monto pagado en USD." });
+        elements.montoUsd.focus();
         return;
     }
 
@@ -530,19 +797,15 @@ async function saveExpense(event) {
         categoria_nombre: selectedCategory.nombre,
         numero_factura: cleanText(elements.numeroFactura.value),
         moneda,
-        monto_usd: roundMoney(parseCurrency(elements.montoUsd.value)),
-        tasa_bcv: Number(state.tasaBcv.toFixed(4)),
-        monto_ves: roundMoney(parseCurrency(elements.montoVes.value)),
+        forma_pago: elements.formaPago.value,
+        tipo_tasa: usesRate ? elements.tipoTasa.value : "DIRECTO",
+        monto_usd: montoDivisa,
+        tasa_bcv: usesRate ? Number(activeRate.toFixed(4)) : 0,
+        monto_ves: montoVes,
         descripcion: cleanText(elements.descripcion.value),
         responsable,
         comprobante_url: null
     };
-
-    if (!payload.monto_usd && !payload.monto_ves) {
-        await Swal.fire({ icon: "warning", title: "Monto requerido", text: "Ingresa el monto en USD o VES." });
-        elements.montoUsd.focus();
-        return;
-    }
 
     setSubmitting(true);
 
@@ -658,7 +921,7 @@ async function loadHistorico() {
 
     let query = supabaseClient
         .from("gastos_operativos")
-        .select("id,user_email,fecha,categoria_nombre,numero_factura,moneda,monto_usd,tasa_bcv,monto_ves,descripcion,responsable,comprobante_url,created_at")
+        .select("id,user_email,fecha,categoria_nombre,numero_factura,moneda,forma_pago,tipo_tasa,monto_usd,tasa_bcv,monto_ves,descripcion,responsable,comprobante_url,created_at")
         .order("fecha", { ascending: false })
         .order("created_at", { ascending: false });
 
@@ -694,8 +957,9 @@ function renderHistorico(rows) {
         <div class="expense-header" aria-hidden="true">
             <span>Fecha</span>
             <span>Categoría</span>
+            <span>Pago/Tasa</span>
             <span>Factura</span>
-            <span>Monto USD</span>
+            <span>Monto divisa</span>
             <span>Monto VES</span>
             <span>Resp.</span>
             <span>Soporte</span>
@@ -707,8 +971,9 @@ function renderHistorico(rows) {
         <article class="expense-row">
             <div><small>Fecha</small><strong>${formatDate(row.fecha)}</strong></div>
             <div class="wide category-cell"><small>Categoría</small><strong title="${escapeAttribute(row.categoria_nombre || "")}">${escapeHtml(row.categoria_nombre || "-")}</strong></div>
+            <div><small>Pago/Tasa</small><strong>${escapeHtml(row.forma_pago || "-")}</strong><span>${escapeHtml(getRateDisplay(row))}</span></div>
             <div><small>Factura</small><span>${escapeHtml(row.numero_factura || "-")}</span></div>
-            <div class="amount-cell"><small>Monto</small><span class="money">$ ${formatNumber(row.monto_usd, 2)}</span><span class="money">Bs. ${formatNumber(row.monto_ves, 2)}</span></div>
+            <div class="amount-cell"><small>Monto</small><span class="money">${getMoneyUnit(row.tipo_tasa)} ${formatNumber(row.monto_usd, 2)}</span><span class="money">Bs. ${formatNumber(row.monto_ves, 2)}</span></div>
             <div><small>Resp.</small><span>${escapeHtml(row.responsable || "-")}</span></div>
             <div><small>Soporte</small>${renderReceiptLink(row.comprobante_url)}</div>
             <div>
@@ -789,8 +1054,19 @@ async function editExpense(row) {
             <div style="display:grid;gap:10px;text-align:left;">
                 <label>Fecha<input id="editFecha" class="swal2-input" type="date" value="${escapeAttribute(row.fecha || "")}"></label>
                 <label>N° Factura / Comprobante<input id="editFactura" class="swal2-input" type="text" value="${escapeAttribute(row.numero_factura || "")}" placeholder="Ej. FAC-001245"></label>
-                <label>Monto USD<input id="editMontoUsd" class="swal2-input" type="number" min="0" step="0.01" value="${escapeAttribute(row.monto_usd || 0)}"></label>
+                <label>Monto divisa<input id="editMontoUsd" class="swal2-input" type="number" min="0" step="0.01" value="${escapeAttribute(row.monto_usd || 0)}"></label>
                 <label>Monto VES<input id="editMontoVes" class="swal2-input" type="number" min="0" step="0.01" value="${escapeAttribute(row.monto_ves || 0)}"></label>
+                <label>Forma de pago
+                    <select id="editFormaPago" class="swal2-select">
+                        ${getAllPaymentMethods().map((method) => `<option value="${escapeAttribute(method)}" ${row.forma_pago === method ? "selected" : ""}>${escapeHtml(method)}</option>`).join("")}
+                    </select>
+                </label>
+                <label>Tipo de tasa
+                    <select id="editTipoTasa" class="swal2-select">
+                        ${["DIRECTO", "BCV_USD", "BCV_EUR", "MANUAL", "BINANCE"].map((rateType) => `<option value="${rateType}" ${(row.tipo_tasa || "DIRECTO") === rateType ? "selected" : ""}>${getRateTypeLabel(rateType)}</option>`).join("")}
+                    </select>
+                </label>
+                <label>Tasa usada<input id="editTasaCambio" class="swal2-input" type="number" min="0" step="0.0001" value="${escapeAttribute(row.tasa_bcv || 0)}"></label>
                 <label>Responsable
                     <select id="editResponsable" class="swal2-select">
                         ${["Ilver", "Manuel", "Irwin"].map((name) => `<option value="${name}" ${row.responsable === name ? "selected" : ""}>${name}</option>`).join("")}
@@ -807,6 +1083,8 @@ async function editExpense(row) {
             const fecha = document.querySelector("#editFecha").value;
             const montoUsd = roundMoney(parseCurrency(document.querySelector("#editMontoUsd").value));
             const montoVes = roundMoney(parseCurrency(document.querySelector("#editMontoVes").value));
+            const tipoTasa = document.querySelector("#editTipoTasa").value;
+            const tasaCambio = parseCurrency(document.querySelector("#editTasaCambio").value);
 
             if (!fecha) {
                 Swal.showValidationMessage("Selecciona la fecha del gasto.");
@@ -818,9 +1096,17 @@ async function editExpense(row) {
                 return false;
             }
 
+            if (tipoTasa !== "DIRECTO" && tasaCambio <= 0) {
+                Swal.showValidationMessage("Ingresa la tasa usada.");
+                return false;
+            }
+
             return {
                 fecha,
                 numero_factura: cleanText(document.querySelector("#editFactura").value),
+                forma_pago: document.querySelector("#editFormaPago").value,
+                tipo_tasa: tipoTasa,
+                tasa_bcv: tipoTasa === "DIRECTO" ? 0 : Number(tasaCambio.toFixed(4)),
                 monto_usd: montoUsd,
                 monto_ves: montoVes,
                 responsable: document.querySelector("#editResponsable").value,
@@ -888,7 +1174,7 @@ function renderTotals(rows) {
         return acc;
     }, { usd: 0, ves: 0, receipts: 0 });
 
-    elements.totalUsd.textContent = `$ ${formatNumber(totals.usd, 2)}`;
+    elements.totalUsd.textContent = formatNumber(totals.usd, 2);
     elements.totalVes.textContent = `Bs. ${formatNumber(totals.ves, 2)}`;
     elements.totalReceipts.textContent = String(totals.receipts);
 }
@@ -908,9 +1194,12 @@ function exportExcel() {
         Fecha: formatDate(row.fecha),
         Categoria: row.categoria_nombre || "",
         Factura: row.numero_factura || "",
-        Moneda: row.moneda || "",
-        "Monto USD": Number(row.monto_usd || 0),
-        "Tasa BCV": Number(row.tasa_bcv || 0),
+        "Moneda de pago": row.moneda || "",
+        "Forma de pago": row.forma_pago || "",
+        "Tipo de tasa": getRateTypeLabel(row.tipo_tasa),
+        "Tasa usada": Number(row.tasa_bcv || 0),
+        "Unidad divisa": getMoneyUnit(row.tipo_tasa),
+        "Monto divisa": Number(row.monto_usd || 0),
         "Monto VES": Number(row.monto_ves || 0),
         Responsable: row.responsable || "",
         "Registrado por": row.user_email || "",
@@ -920,8 +1209,9 @@ function exportExcel() {
 
     const worksheet = XLSX.utils.json_to_sheet(rows);
     worksheet["!cols"] = [
-        { wch: 12 }, { wch: 28 }, { wch: 18 }, { wch: 10 }, { wch: 12 }, { wch: 12 },
-        { wch: 14 }, { wch: 16 }, { wch: 28 }, { wch: 36 }, { wch: 48 }
+        { wch: 12 }, { wch: 28 }, { wch: 18 }, { wch: 14 }, { wch: 18 }, { wch: 14 },
+        { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 28 },
+        { wch: 36 }, { wch: 48 }
     ];
 
     const workbook = XLSX.utils.book_new();
@@ -958,6 +1248,9 @@ function setPeriodDates(period) {
 function resetFormState() {
     elements.fecha.value = toDateInput(new Date());
     elements.monedaUsd.checked = true;
+    renderPaymentMethods("USD");
+    updateMoneyInputLock();
+    syncRateTypeToPayment(false);
     state.tempCategory = null;
     renderCategorias();
     elements.vehiculoDetalle.value = "";

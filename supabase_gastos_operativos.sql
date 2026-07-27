@@ -23,6 +23,8 @@ create table if not exists public.gastos_operativos (
     categoria_nombre text not null,
     numero_factura text,
     moneda text not null check (moneda in ('USD', 'VES')),
+    forma_pago text,
+    tipo_tasa text not null default 'DIRECTO' check (tipo_tasa in ('DIRECTO', 'BCV_USD', 'BCV_EUR', 'MANUAL', 'BINANCE')),
     monto_usd numeric(10,2) not null default 0,
     tasa_bcv numeric(10,4) not null default 0,
     monto_ves numeric(10,2) not null default 0,
@@ -37,6 +39,21 @@ alter table public.gastos_operativos
 
 alter table public.gastos_operativos
     add column if not exists user_email text;
+
+alter table public.gastos_operativos
+    add column if not exists forma_pago text,
+    add column if not exists tipo_tasa text not null default 'DIRECTO';
+
+alter table public.gastos_operativos
+    drop constraint if exists gastos_operativos_tipo_tasa_check;
+
+update public.gastos_operativos
+set tipo_tasa = 'BCV_USD'
+where tipo_tasa is null or tipo_tasa = 'BCV';
+
+alter table public.gastos_operativos
+    add constraint gastos_operativos_tipo_tasa_check
+    check (tipo_tasa in ('DIRECTO', 'BCV_USD', 'BCV_EUR', 'MANUAL', 'BINANCE'));
 
 alter table public.categorias_gastos
     drop column if exists requiere_kilometraje;
@@ -91,11 +108,6 @@ with check (user_id = auth.uid());
 
 drop policy if exists "Usuarios eliminan sus gastos" on public.gastos_operativos;
 create policy "Usuarios eliminan sus gastos"
-on public.gastos_operativos for delete
-to authenticated
-drop policy if exists "Usuarios eliminan sus gastos" on public.gastos_operativos;
-
-create policy "Usuarios eliminan sus gastos"
 on public.gastos_operativos
 for delete
 to authenticated
@@ -103,20 +115,6 @@ using (
     user_id = auth.uid()
     or user_id is null
     or user_email = (auth.jwt() ->> 'email')
-);
-
-drop policy if exists "Usuarios eliminan sus comprobantes" on storage.objects;
-
-create policy "Usuarios eliminan sus comprobantes"
-on storage.objects
-for delete
-to authenticated
-using (
-    bucket_id = 'comprobantes-gastos'
-    and (
-        (storage.foldername(name))[1] = auth.uid()::text
-        or owner = auth.uid()
-    )
 );
 
 insert into storage.buckets (id, name, public)
@@ -144,5 +142,8 @@ on storage.objects for delete
 to authenticated
 using (
     bucket_id = 'comprobantes-gastos'
-    and (storage.foldername(name))[1] = auth.uid()::text
+    and (
+        (storage.foldername(name))[1] = auth.uid()::text
+        or owner = auth.uid()
+    )
 );

@@ -60,6 +60,33 @@
             font: inherit;
         }
 
+        .page-loader {
+            position: fixed;
+            inset: 0;
+            display: none;
+            place-items: center;
+            z-index: 1000;
+            background: rgba(248,250,252,0.86);
+            backdrop-filter: blur(10px);
+        }
+
+        .page-loader.is-visible {
+            display: grid;
+        }
+
+        .loader-spinner {
+            width: 38px;
+            height: 38px;
+            border: 3px solid rgba(37,99,235,0.18);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: loaderSpin 800ms linear infinite;
+        }
+
+        @keyframes loaderSpin {
+            to { transform: rotate(360deg); }
+        }
+
         .app-shell {
             width: min(1320px, calc(100% - 32px));
             max-width: 100%;
@@ -137,7 +164,7 @@
             flex-wrap: wrap;
         }
 
-        .user-chip, .bcv-badge {
+        .user-chip {
             display: inline-flex;
             align-items: center;
             gap: 10px;
@@ -148,9 +175,7 @@
             max-width: 100%;
         }
 
-        .user-chip span,
-        .bcv-badge span,
-        .bcv-badge strong {
+        .user-chip span {
             min-width: 0;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -170,15 +195,7 @@
             text-overflow: ellipsis;
         }
 
-        .bcv-badge {
-            border: 1px solid #BFDBFE;
-            background: var(--primary-soft);
-            color: #1D4ED8;
-            box-shadow: var(--shadow);
-            cursor: pointer;
-        }
-
-        .bcv-badge strong, .money, .metric strong { font-family: var(--mono); }
+        .money, .metric strong { font-family: var(--mono); }
 
         .module-tabs {
             display: grid;
@@ -259,16 +276,19 @@
             gap: 12px;
         }
 
-        .form-section--meta { grid-column: span 6; }
-        .form-section--payment { grid-column: span 6; }
-        .form-section--money { grid-column: span 5; }
-        .form-section--description { grid-column: span 7; }
-        .form-section--responsible { grid-column: span 7; }
-        .form-section--receipt { grid-column: span 5; }
+        .form-section--meta,
+        .form-section--payment { grid-column: 1 / -1; }
+        .form-section--money,
+        .form-section--rate { grid-column: span 6; }
+        .form-section--money.is-direct { grid-column: 1 / -1; }
+        .form-section--description,
+        .form-section--receipt { grid-column: 1 / -1; }
+        .form-section--responsible { grid-column: 1 / -1; }
 
         .form-section--meta,
         .form-section--payment,
         .form-section--money,
+        .form-section--rate,
         .form-section--description,
         .form-section--responsible,
         .form-section--receipt {
@@ -277,6 +297,20 @@
             border-radius: var(--radius);
             background: rgba(248,250,252,0.78);
             padding: 14px;
+        }
+
+        .form-section--meta,
+        .form-section--payment {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .form-section--rate {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .form-section--rate,
+        .form-section--money {
+            min-height: 134px;
         }
 
         .expense-form > .form-actions {
@@ -324,7 +358,7 @@
             text-align: left;
         }
 
-        .field textarea { min-height: 76px; resize: vertical; }
+        .field textarea { min-height: 86px; resize: vertical; }
 
         .field input:focus, .field select:focus, .field textarea:focus {
             border-color: var(--primary);
@@ -385,9 +419,36 @@
             padding: 10px;
         }
 
+        .money-grid.is-single {
+            grid-template-columns: 1fr;
+        }
+
         .money-input { position: relative; }
         .money-input input { padding-left: 44px; font-family: var(--mono); font-weight: 600; }
         .money-input span { position: absolute; top: 50%; left: 12px; color: var(--muted); font-family: var(--mono); transform: translateY(-50%); }
+
+        .money-input.is-calculated input {
+            background: #EEF2F7;
+            color: #64748B;
+            cursor: not-allowed;
+        }
+
+        .money-input.is-calculated::after {
+            content: "Calculado";
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            border-radius: 999px;
+            background: #E2E8F0;
+            color: #475569;
+            padding: 3px 7px;
+            font-size: 0.68rem;
+            font-weight: 800;
+            transform: translateY(-50%);
+            pointer-events: none;
+        }
+
+        .money-input.is-calculated input { padding-right: 84px; }
 
         .responsables {
             display: grid;
@@ -431,20 +492,39 @@
 
         .drop-zone {
             display: grid;
-            place-items: center;
+            grid-template-columns: auto minmax(0, 1fr);
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
             min-height: 104px;
             border: 2px dashed var(--line-strong);
             border-radius: var(--radius);
             background: #F8FAFC;
             color: var(--muted);
             padding: 16px;
-            text-align: center;
+            text-align: left;
             cursor: pointer;
             transition: border-color 160ms ease, background 160ms ease;
         }
 
         .drop-zone.is-dragover { border-color: var(--primary); background: #EFF6FF; }
         .drop-zone strong { display: block; color: var(--text); margin-bottom: 4px; }
+
+        .drop-icon {
+            display: grid;
+            place-items: center;
+            width: 48px;
+            height: 48px;
+            border: 1px solid #BFDBFE;
+            border-radius: 12px;
+            background: #EFF6FF;
+            color: #1D4ED8;
+        }
+
+        .drop-icon svg {
+            width: 25px;
+            height: 25px;
+        }
 
         .preview {
             display: none;
@@ -515,8 +595,8 @@
 
         .expense-header {
             display: grid;
-            grid-template-columns: 90px minmax(220px, 1.6fr) 110px 120px 140px 96px 86px 96px;
-            gap: 12px;
+            grid-template-columns: 104px minmax(160px, 1.2fr) 128px 94px 104px 124px 78px 70px 150px;
+            gap: 10px;
             align-items: center;
             border: 1px solid var(--line);
             border-radius: var(--radius);
@@ -531,9 +611,9 @@
 
         .expense-row {
             display: grid;
-            grid-template-columns: 90px minmax(220px, 1.6fr) 110px 120px 140px 96px 86px 96px;
+            grid-template-columns: 104px minmax(160px, 1.2fr) 128px 94px 104px 124px 78px 70px 150px;
             min-width: 0;
-            gap: 12px;
+            gap: 10px;
             align-items: center;
             border: 1px solid var(--line);
             border-radius: var(--radius);
@@ -558,9 +638,9 @@
         }
 
         .expense-row .category-cell strong {
-            white-space: normal;
-            overflow: visible;
-            text-overflow: clip;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .expense-row .amount-cell {
@@ -596,7 +676,8 @@
         .expense-actions {
             display: flex;
             gap: 6px;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
+            min-width: 0;
         }
 
         .edit-expense-button,
@@ -642,6 +723,7 @@
             .form-section--meta,
             .form-section--payment,
             .form-section--money,
+            .form-section--rate,
             .form-section--description,
             .form-section--responsible,
             .form-section--receipt,
@@ -656,10 +738,13 @@
 
             .topbar { flex-direction: column; }
             .app-brand { align-items: flex-start; }
-            .top-actions, .bcv-badge, .user-chip { width: 100%; }
-            .bcv-badge, .user-chip { justify-content: space-between; }
+            .top-actions, .user-chip { width: 100%; }
+            .user-chip { justify-content: space-between; }
             .expense-form { grid-template-columns: 1fr; }
             .form-row, .money-grid, .responsables, .filters-grid, .summary-grid { grid-template-columns: 1fr; }
+            .form-section--meta,
+            .form-section--payment,
+            .form-section--rate { grid-template-columns: 1fr; }
             .form-actions button, .button-row button { width: 100%; }
             .expense-form > .form-actions { justify-content: stretch; }
             .expense-row { grid-template-columns: 1fr 1fr; }
@@ -678,12 +763,19 @@
             .expense-form, .report-body { padding: 14px; }
             .expense-row { grid-template-columns: 1fr; padding: 12px; }
             .expense-actions, .receipt-link, .edit-expense-button, .delete-expense-button { width: 100%; }
+            .expense-actions { flex-wrap: wrap; }
+            .drop-zone { grid-template-columns: 1fr; text-align: center; }
+            .drop-icon { margin: 0 auto; }
             .preview { align-items: flex-start; flex-direction: column; }
             .preview .ghost-button { width: 100%; }
         }
     </style>
 </head>
 <body>
+    <div class="page-loader" id="pageLoader" role="status" aria-live="polite" aria-hidden="true">
+        <div class="loader-spinner" aria-label="Cargando"></div>
+    </div>
+
     <main class="app-shell">
         <header class="topbar">
             <div class="app-brand">
@@ -695,7 +787,6 @@
             </div>
             <div class="top-actions">
                 <div class="user-chip"><span>Usuario</span><strong id="userEmail">Validando...</strong></div>
-                <button class="bcv-badge" id="bcvBadge" type="button" title="Editar tasa BCV"><span>Tasa BCV En Vivo</span><strong id="bcvValue">Cargando...</strong></button>
                 <button class="danger-button" id="logoutButton" type="button">Salir</button>
             </div>
         </header>
@@ -752,13 +843,32 @@
                             <label for="numeroFactura">N° Factura / Comprobante</label>
                             <input id="numeroFactura" name="numero_factura" type="text" placeholder="Ej. FAC-001245">
                         </div>
+                        <div class="field">
+                            <label for="formaPago">Forma de pago</label>
+                            <select id="formaPago" name="forma_pago"></select>
+                        </div>
                     </div>
 
-                    <div class="field form-section--money">
-                        <label>Calculadora $ / VES</label>
-                        <div class="money-grid">
-                            <div class="money-input"><span>USD</span><input id="montoUsd" name="monto_usd" type="number" min="0" step="0.01" placeholder="0.00" required></div>
-                            <div class="money-input"><span>VES</span><input id="montoVes" name="monto_ves" type="number" min="0" step="0.01" placeholder="0.00" required></div>
+                    <div class="form-row form-section--rate" id="rateSection">
+                        <div class="field">
+                            <label for="tipoTasa">Tipo de tasa</label>
+                            <select id="tipoTasa" name="tipo_tasa">
+                                <option value="BCV_USD">BCV Dólar</option>
+                                <option value="BCV_EUR">BCV Euro</option>
+                                <option value="MANUAL">Manual</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label for="tasaCambio">Tasa usada</label>
+                            <input id="tasaCambio" name="tasa_cambio" type="number" min="0" step="0.0001" placeholder="0.0000" required>
+                        </div>
+                    </div>
+
+                    <div class="field form-section--money" id="moneySection">
+                        <label id="moneySectionLabel">Monto pagado</label>
+                        <div class="money-grid" id="moneyGrid">
+                            <div class="money-input" id="montoUsdWrap"><span id="montoBaseLabel">USD</span><input id="montoUsd" name="monto_usd" type="number" min="0" step="0.01" placeholder="0.00" required></div>
+                            <div class="money-input" id="montoVesWrap"><span>VES</span><input id="montoVes" name="monto_ves" type="number" min="0" step="0.01" placeholder="0.00" required readonly></div>
                         </div>
                     </div>
 
@@ -782,6 +892,13 @@
                     <div class="field form-section--receipt">
                         <label for="comprobanteInput">Comprobante</label>
                         <div class="drop-zone" id="dropZone" tabindex="0" role="button" aria-controls="comprobanteInput">
+                            <span class="drop-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" fill="none" focusable="false">
+                                    <path d="M7 3.75h7.2L19 8.55v11.7H7z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+                                    <path d="M14 3.75v5h5" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+                                    <path d="M9.75 14.25 12 12m0 0 2.25 2.25M12 12v5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </span>
                             <div><strong>Arrastra una foto o PDF aquí</strong><span>También puedes hacer clic para seleccionar.</span></div>
                         </div>
                         <input id="comprobanteInput" name="comprobante" type="file" accept="image/*,.pdf" hidden>
@@ -822,7 +939,7 @@
                     </div>
 
                     <div class="summary-grid">
-                        <div class="metric"><span>Total USD</span><strong id="totalUsd">$ 0.00</strong></div>
+                        <div class="metric"><span>Total divisa</span><strong id="totalUsd">0.00</strong></div>
                         <div class="metric"><span>Total VES</span><strong id="totalVes">Bs. 0.00</strong></div>
                         <div class="metric"><span>Comprobantes</span><strong id="totalReceipts">0</strong></div>
                     </div>
@@ -840,8 +957,8 @@
         </section>
     </main>
 
-    <script src="supabase-config.js?v=7"></script>
-    <script src="app-install.js?v=7"></script>
-    <script src="gastos.js?v=7"></script>
+    <script src="supabase-config.js?v=18"></script>
+    <script src="app-install.js?v=18"></script>
+    <script src="gastos.js?v=18"></script>
 </body>
 </html>
