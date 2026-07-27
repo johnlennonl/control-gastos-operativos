@@ -195,6 +195,17 @@
             text-overflow: ellipsis;
         }
 
+        .logout-button {
+            min-width: 136px;
+            border-color: #FECACA;
+            background: #FFF7F7;
+            color: #B91C1C;
+        }
+
+        .logout-button:hover {
+            background: #FEF2F2;
+        }
+
         .money, .metric strong { font-family: var(--mono); }
 
         .module-tabs {
@@ -240,6 +251,28 @@
             background: rgba(255,255,255,0.92);
             box-shadow: 0 18px 50px rgba(15,23,42,0.08);
             overflow: hidden;
+        }
+
+        .module-panel {
+            opacity: 1;
+            transform: translateY(0);
+            transition: opacity 180ms ease, transform 180ms ease;
+        }
+
+        .module-panel.is-leaving {
+            opacity: 0;
+            transform: translateY(8px);
+        }
+
+        .module-panel.is-entering {
+            opacity: 0;
+            transform: translateY(8px);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .module-panel {
+                transition: none;
+            }
         }
 
         .module-panel[hidden] {
@@ -680,6 +713,10 @@
             min-width: 0;
         }
 
+        .expense-tools {
+            display: contents;
+        }
+
         .edit-expense-button,
         .delete-expense-button {
             display: inline-flex;
@@ -720,6 +757,14 @@
             .expense-row small { display: block; }
             .expense-row .amount-cell { display: block; }
 
+            .expense-tools {
+                display: grid;
+                grid-column: 1 / -1;
+                grid-template-columns: minmax(140px, 0.8fr) minmax(220px, 1.2fr);
+                gap: 10px;
+                align-items: end;
+            }
+
             .form-section--meta,
             .form-section--payment,
             .form-section--money,
@@ -738,7 +783,7 @@
 
             .topbar { flex-direction: column; }
             .app-brand { align-items: flex-start; }
-            .top-actions, .user-chip { width: 100%; }
+            .top-actions, .user-chip, .logout-button { width: 100%; }
             .user-chip { justify-content: space-between; }
             .expense-form { grid-template-columns: 1fr; }
             .form-row, .money-grid, .responsables, .filters-grid, .summary-grid { grid-template-columns: 1fr; }
@@ -747,8 +792,18 @@
             .form-section--rate { grid-template-columns: 1fr; }
             .form-actions button, .button-row button { width: 100%; }
             .expense-form > .form-actions { justify-content: stretch; }
-            .expense-row { grid-template-columns: 1fr 1fr; }
-            .expense-row .wide { grid-column: 1 / -1; }
+            .expense-row {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px 10px;
+                padding: 10px;
+            }
+            .expense-row .wide,
+            .expense-tools { grid-column: 1 / -1; }
+            .expense-tools { grid-template-columns: minmax(140px, 0.8fr) minmax(220px, 1.2fr); gap: 8px; }
+            .expense-actions { display: grid; grid-template-columns: 1fr 1fr; }
+            .receipt-link,
+            .edit-expense-button,
+            .delete-expense-button { min-height: 32px; }
         }
 
         @media (max-width: 520px) {
@@ -761,9 +816,42 @@
             .module-tabs { position: sticky; top: 6px; z-index: 5; }
             .panel-header { align-items: flex-start; flex-direction: column; padding: 14px; }
             .expense-form, .report-body { padding: 14px; }
-            .expense-row { grid-template-columns: 1fr; padding: 12px; }
-            .expense-actions, .receipt-link, .edit-expense-button, .delete-expense-button { width: 100%; }
-            .expense-actions { flex-wrap: wrap; }
+            .expense-list { gap: 10px; }
+            .expense-row {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px 10px;
+                padding: 10px;
+            }
+            .expense-row > div { min-width: 0; }
+            .expense-row small { font-size: 0.66rem; }
+            .expense-row strong,
+            .expense-row span { font-size: 0.9rem; }
+            .expense-row .wide,
+            .expense-row .amount-cell,
+            .expense-tools { grid-column: 1 / -1; }
+            .expense-row .amount-cell {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 6px 10px;
+                border-top: 1px solid var(--line);
+                padding-top: 8px;
+            }
+            .expense-row .amount-cell small { grid-column: 1 / -1; }
+            .expense-tools {
+                display: grid;
+                grid-template-columns: 1fr;
+                gap: 7px;
+                border-top: 1px solid var(--line);
+                padding-top: 8px;
+            }
+            .receipt-link { width: 100%; }
+            .expense-actions {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 7px;
+            }
+            .edit-expense-button,
+            .delete-expense-button { width: 100%; }
             .drop-zone { grid-template-columns: 1fr; text-align: center; }
             .drop-icon { margin: 0 auto; }
             .preview { align-items: flex-start; flex-direction: column; }
@@ -787,7 +875,7 @@
             </div>
             <div class="top-actions">
                 <div class="user-chip"><span>Usuario</span><strong id="userEmail">Validando...</strong></div>
-                <button class="danger-button" id="logoutButton" type="button">Salir</button>
+                <button class="danger-button logout-button" id="logoutButton" type="button">Cerrar sesión</button>
             </div>
         </header>
 
@@ -957,8 +1045,8 @@
         </section>
     </main>
 
-    <script src="supabase-config.js?v=18"></script>
-    <script src="app-install.js?v=18"></script>
-    <script src="gastos.js?v=18"></script>
+    <script src="supabase-config.js?v=20"></script>
+    <script src="app-install.js?v=20"></script>
+    <script src="gastos.js?v=20"></script>
 </body>
 </html>

@@ -27,6 +27,7 @@ const state = {
     selectedFile: null,
     tempCategory: null,
     syncingMoney: false,
+    switchingTab: false,
     currentUser: null,
     historyRows: []
 };
@@ -184,18 +185,46 @@ function bindEvents() {
     });
 }
 
-function activateTab(target) {
+async function activateTab(target) {
+    if (state.switchingTab) return;
+
+    const currentPanel = Array.from(elements.modulePanels).find((panel) => !panel.hidden);
+    const nextPanel = Array.from(elements.modulePanels).find((panel) => panel.dataset.panel === target);
+
+    if (!nextPanel || currentPanel === nextPanel) return;
+
     elements.tabButtons.forEach((button) => {
         const isActive = button.dataset.tabTarget === target;
         button.classList.toggle("is-active", isActive);
         button.setAttribute("aria-selected", String(isActive));
     });
 
-    elements.modulePanels.forEach((panel) => {
-        const isActive = panel.dataset.panel === target;
-        panel.hidden = !isActive;
-        panel.classList.toggle("is-active", isActive);
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    if (reduceMotion) {
+        currentPanel.hidden = true;
+        currentPanel.classList.remove("is-active");
+        nextPanel.hidden = false;
+        nextPanel.classList.add("is-active");
+        return;
+    }
+
+    state.switchingTab = true;
+    currentPanel.classList.add("is-leaving");
+    await delay(160);
+    currentPanel.hidden = true;
+    currentPanel.classList.remove("is-active", "is-leaving");
+
+    nextPanel.hidden = false;
+    nextPanel.classList.add("is-active", "is-entering");
+    requestAnimationFrame(() => {
+        nextPanel.classList.remove("is-entering");
+        state.switchingTab = false;
     });
+}
+
+function delay(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function logout() {
@@ -975,12 +1004,14 @@ function renderHistorico(rows) {
             <div><small>Factura</small><span>${escapeHtml(row.numero_factura || "-")}</span></div>
             <div class="amount-cell"><small>Monto</small><span class="money">${getMoneyUnit(row.tipo_tasa)} ${formatNumber(row.monto_usd, 2)}</span><span class="money">Bs. ${formatNumber(row.monto_ves, 2)}</span></div>
             <div><small>Resp.</small><span>${escapeHtml(row.responsable || "-")}</span></div>
-            <div><small>Soporte</small>${renderReceiptLink(row.comprobante_url)}</div>
-            <div>
-                <small>Acción</small>
-                <div class="expense-actions">
-                    <button class="edit-expense-button" type="button" data-expense-id="${escapeAttribute(row.id)}">Editar</button>
-                    <button class="delete-expense-button" type="button" data-expense-id="${escapeAttribute(row.id)}">Eliminar</button>
+            <div class="expense-tools">
+                <div><small>Soporte</small>${renderReceiptLink(row.comprobante_url)}</div>
+                <div>
+                    <small>Acción</small>
+                    <div class="expense-actions">
+                        <button class="edit-expense-button" type="button" data-expense-id="${escapeAttribute(row.id)}">Editar</button>
+                        <button class="delete-expense-button" type="button" data-expense-id="${escapeAttribute(row.id)}">Eliminar</button>
+                    </div>
                 </div>
             </div>
         </article>

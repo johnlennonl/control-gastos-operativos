@@ -1,4 +1,4 @@
-const CACHE_NAME = "control-gastos-v18";
+const CACHE_NAME = "control-gastos-v20";
 const APP_ASSETS = [
   "./manifest.webmanifest",
   "./image.png"
