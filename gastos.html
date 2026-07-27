@@ -1,0 +1,728 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Gastos Operativos</title>
+    <link rel="icon" type="image/png" href="image.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --bg: #F8FAFC;
+            --surface: #FFFFFF;
+            --surface-soft: #F1F5F9;
+            --text: #1E293B;
+            --muted: #64748B;
+            --line: #E2E8F0;
+            --line-strong: #CBD5E1;
+            --primary: #2563EB;
+            --primary-soft: #DBEAFE;
+            --danger: #DC2626;
+            --shadow: 0 4px 20px rgba(0,0,0,0.05);
+            --radius: 8px;
+            --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+            --sans: "IBM Plex Sans", "Segoe UI", sans-serif;
+        }
+
+        * { box-sizing: border-box; }
+
+        html {
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+
+        body {
+            margin: 0;
+            max-width: 100%;
+            min-height: 100vh;
+            overflow-x: hidden;
+            background: linear-gradient(180deg, #FFFFFF 0, var(--bg) 260px);
+            color: var(--text);
+            font-family: var(--sans);
+            font-variant-numeric: tabular-nums;
+        }
+
+        button, input, select, textarea { font: inherit; }
+
+        .app-shell {
+            width: min(1320px, calc(100% - 32px));
+            max-width: 100%;
+            min-width: 0;
+            margin: 0 auto;
+            padding: 28px 0 44px;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 16px;
+            min-width: 0;
+            margin-bottom: 18px;
+        }
+
+        .topbar > div {
+            min-width: 0;
+        }
+
+        .eyebrow {
+            margin: 0 0 6px;
+            color: var(--muted);
+            font-size: 0.82rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(1.75rem, 4vw, 2.7rem);
+            line-height: 1.05;
+            letter-spacing: 0;
+            overflow-wrap: anywhere;
+        }
+
+        .top-actions {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+            min-width: 0;
+            flex-wrap: wrap;
+        }
+
+        .user-chip, .bcv-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+            min-height: 42px;
+            border-radius: var(--radius);
+            padding: 9px 12px;
+            max-width: 100%;
+        }
+
+        .user-chip span,
+        .bcv-badge span,
+        .bcv-badge strong {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .user-chip {
+            border: 1px solid var(--line);
+            background: #FFFFFF;
+            color: var(--muted);
+            box-shadow: var(--shadow);
+        }
+
+        .user-chip strong {
+            display: block;
+            max-width: 220px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .bcv-badge {
+            border: 1px solid #BFDBFE;
+            background: var(--primary-soft);
+            color: #1D4ED8;
+            box-shadow: var(--shadow);
+            cursor: pointer;
+        }
+
+        .bcv-badge strong, .money, .metric strong { font-family: var(--mono); }
+
+        .module-tabs {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            background: var(--surface-soft);
+            margin-bottom: 16px;
+            padding: 6px;
+            box-shadow: var(--shadow);
+        }
+
+        .module-tab {
+            min-height: 42px;
+            border: 0;
+            border-radius: 6px;
+            background: transparent;
+            color: var(--muted);
+            cursor: pointer;
+            font-weight: 800;
+        }
+
+        .module-tab.is-active {
+            background: #FFFFFF;
+            color: var(--primary);
+            box-shadow: 0 2px 10px rgba(15,23,42,0.08);
+        }
+
+        .layout-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+            gap: 20px;
+            align-items: start;
+        }
+
+        .panel {
+            min-width: 0;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            background: var(--surface);
+            box-shadow: var(--shadow);
+        }
+
+        .module-panel[hidden] {
+            display: none;
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            border-bottom: 1px solid var(--line);
+            padding: 16px 18px;
+        }
+
+        .panel-header h2 { margin: 0; font-size: 1.02rem; }
+        .panel-header span { color: var(--muted); font-size: 0.9rem; }
+
+        .expense-form, .report-body {
+            display: grid;
+            gap: 14px;
+            padding: 18px;
+        }
+
+        .expense-form {
+            grid-template-columns: repeat(12, minmax(0, 1fr));
+            align-items: start;
+            gap: 16px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .form-section--meta { grid-column: span 4; }
+        .form-section--payment { grid-column: span 4; }
+        .form-section--money { grid-column: span 4; }
+        .form-section--description { grid-column: span 7; }
+        .form-section--responsible { grid-column: span 5; }
+        .form-section--receipt { grid-column: 1 / -1; }
+
+        .expense-form > .form-actions {
+            grid-column: 1 / -1;
+            justify-content: flex-end;
+            border-top: 1px solid var(--line);
+            margin-top: 2px;
+            padding-top: 16px;
+        }
+
+        .field { display: flex; flex-direction: column; gap: 7px; }
+        fieldset.field { min-width: 0; margin: 0; padding: 0; border: 0; }
+
+        .field label, .field legend {
+            color: #334155;
+            font-size: 0.84rem;
+            font-weight: 700;
+        }
+
+        .field input, .field select, .field textarea {
+            width: 100%;
+            min-height: 42px;
+            border: 1px solid var(--line-strong);
+            border-radius: var(--radius);
+            background: #FFFFFF;
+            color: var(--text);
+            padding: 9px 11px;
+            outline: none;
+            transition: border-color 160ms ease, box-shadow 160ms ease;
+        }
+
+        .field textarea { min-height: 76px; resize: vertical; }
+
+        .field input:focus, .field select:focus, .field textarea:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37,99,235,0.13);
+        }
+
+        .radio-toggle {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            background: var(--surface-soft);
+            padding: 5px;
+        }
+
+        .radio-toggle input, .responsables input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .radio-toggle label {
+            display: grid;
+            place-items: center;
+            min-height: 34px;
+            border-radius: 6px;
+            color: var(--muted);
+            cursor: pointer;
+            font-weight: 700;
+        }
+
+        .radio-toggle input:checked + label {
+            background: #FFFFFF;
+            color: var(--primary);
+            box-shadow: 0 2px 10px rgba(15,23,42,0.08);
+        }
+
+        .money-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            background: #F8FAFC;
+            padding: 10px;
+        }
+
+        .money-input { position: relative; }
+        .money-input input { padding-left: 44px; font-family: var(--mono); font-weight: 600; }
+        .money-input span { position: absolute; top: 50%; left: 12px; color: var(--muted); font-family: var(--mono); transform: translateY(-50%); }
+
+        .responsables {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+        }
+
+        .responsable-card {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-height: 54px;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            background: #FFFFFF;
+            padding: 8px;
+            cursor: pointer;
+            transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+        }
+
+        .avatar {
+            display: grid;
+            place-items: center;
+            width: 32px;
+            height: 32px;
+            flex: 0 0 32px;
+            border-radius: 50%;
+            background: #E0F2FE;
+            color: #0369A1;
+            font-weight: 800;
+        }
+
+        .responsable-card strong { display: block; font-size: 0.88rem; }
+        .responsable-card small { display: block; color: var(--muted); font-size: 0.7rem; }
+
+        .responsables input:checked + .responsable-card {
+            border-color: var(--primary);
+            background: #EFF6FF;
+            box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+        }
+
+        .drop-zone {
+            display: grid;
+            place-items: center;
+            min-height: 104px;
+            border: 2px dashed var(--line-strong);
+            border-radius: var(--radius);
+            background: #F8FAFC;
+            color: var(--muted);
+            padding: 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 160ms ease, background 160ms ease;
+        }
+
+        .drop-zone.is-dragover { border-color: var(--primary); background: #EFF6FF; }
+        .drop-zone strong { display: block; color: var(--text); margin-bottom: 4px; }
+
+        .preview {
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            background: #FFFFFF;
+            margin-top: 8px;
+            padding: 9px;
+        }
+
+        .preview.is-visible { display: flex; }
+        .preview img { width: 46px; height: 46px; border-radius: 6px; object-fit: cover; border: 1px solid var(--line); }
+        .preview-meta { min-width: 0; flex: 1; }
+        .preview-meta strong, .preview-meta small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        .button-row, .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .ghost-button, .primary-button, .danger-button {
+            min-height: 40px;
+            border-radius: var(--radius);
+            padding: 9px 13px;
+            cursor: pointer;
+            font-weight: 800;
+        }
+
+        .ghost-button { border: 1px solid var(--line-strong); background: #FFFFFF; color: var(--text); }
+        .primary-button { border: 0; background: var(--primary); color: #FFFFFF; box-shadow: 0 8px 18px rgba(37,99,235,0.22); }
+        .danger-button { border: 1px solid #FECACA; background: #FEF2F2; color: var(--danger); }
+
+        .filters-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr 1fr;
+            gap: 10px;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .metric {
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            background: #F8FAFC;
+            padding: 12px;
+        }
+
+        .metric span { display: block; color: var(--muted); font-size: 0.76rem; font-weight: 800; text-transform: uppercase; }
+        .metric strong { display: block; margin-top: 5px; font-size: 1rem; }
+
+        .expense-list {
+            display: grid;
+            gap: 8px;
+            max-height: 620px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding-right: 2px;
+        }
+
+        .expense-header {
+            display: grid;
+            grid-template-columns: 90px minmax(220px, 1.6fr) 110px 120px 140px 96px 86px 96px;
+            gap: 12px;
+            align-items: center;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            background: #F8FAFC;
+            color: #52657E;
+            padding: 10px 12px;
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .expense-row {
+            display: grid;
+            grid-template-columns: 90px minmax(220px, 1.6fr) 110px 120px 140px 96px 86px 96px;
+            min-width: 0;
+            gap: 12px;
+            align-items: center;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            background: #FFFFFF;
+            padding: 12px;
+        }
+
+        .expense-row small {
+            display: none;
+            color: var(--muted);
+            font-size: 0.72rem;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .expense-row strong, .expense-row span {
+            display: block;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .expense-row .category-cell strong {
+            white-space: normal;
+            overflow: visible;
+            text-overflow: clip;
+        }
+
+        .expense-row .amount-cell {
+            display: contents;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            width: fit-content;
+            border-radius: 999px;
+            background: #ECFDF5;
+            color: #047857;
+            padding: 4px 9px;
+            font-size: 0.78rem;
+            font-weight: 800;
+        }
+
+        .receipt-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 34px;
+            border: 1px solid #BFDBFE;
+            border-radius: 6px;
+            background: #EFF6FF;
+            color: #1D4ED8;
+            padding: 6px 10px;
+            font-size: 0.82rem;
+            font-weight: 800;
+            text-decoration: none;
+        }
+
+        .delete-expense-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 34px;
+            border: 1px solid #FECACA;
+            border-radius: 6px;
+            background: #FEF2F2;
+            color: var(--danger);
+            padding: 6px 10px;
+            font-size: 0.82rem;
+            font-weight: 800;
+            cursor: pointer;
+        }
+
+        .empty-state { padding: 28px 16px; color: var(--muted); text-align: center; }
+        .swal2-popup { font-family: var(--sans); }
+
+        @media (max-width: 1180px) {
+            .layout-grid { grid-template-columns: 1fr; }
+            .expense-list { max-height: none; }
+            .expense-header { display: none; }
+            .expense-row {
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+                gap: 10px;
+            }
+
+            .expense-row small { display: block; }
+            .expense-row .amount-cell { display: block; }
+
+            .form-section--meta,
+            .form-section--payment,
+            .form-section--money,
+            .form-section--description,
+            .form-section--responsible,
+            .form-section--receipt,
+            .expense-form > .form-actions { grid-column: 1 / -1; }
+        }
+
+        @media (max-width: 820px) {
+            .app-shell {
+                width: min(100% - 16px, 760px);
+                padding-top: 18px;
+            }
+
+            .topbar { flex-direction: column; }
+            .top-actions, .bcv-badge, .user-chip { width: 100%; }
+            .bcv-badge, .user-chip { justify-content: space-between; }
+            .expense-form { grid-template-columns: 1fr; }
+            .form-row, .money-grid, .responsables, .filters-grid, .summary-grid { grid-template-columns: 1fr; }
+            .form-actions button, .button-row button { width: 100%; }
+            .expense-form > .form-actions { justify-content: stretch; }
+            .expense-row { grid-template-columns: 1fr 1fr; }
+            .expense-row .wide { grid-column: 1 / -1; }
+        }
+
+        @media (max-width: 520px) {
+            .app-shell {
+                width: min(100% - 8px, 520px);
+                padding: 12px 0 28px;
+            }
+
+            h1 { font-size: 1.75rem; }
+            .module-tabs { position: sticky; top: 6px; z-index: 5; }
+            .panel-header { align-items: flex-start; flex-direction: column; padding: 14px; }
+            .expense-form, .report-body { padding: 14px; }
+            .expense-row { grid-template-columns: 1fr; padding: 12px; }
+            .receipt-link, .delete-expense-button { width: 100%; }
+            .preview { align-items: flex-start; flex-direction: column; }
+            .preview .ghost-button { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <main class="app-shell">
+        <header class="topbar">
+            <div>
+                <p class="eyebrow">Registros Operativos</p>
+                <h1>Control de gastos operativos</h1>
+            </div>
+            <div class="top-actions">
+                <div class="user-chip"><span>Usuario</span><strong id="userEmail">Validando...</strong></div>
+                <button class="bcv-badge" id="bcvBadge" type="button" title="Editar tasa BCV"><span>Tasa BCV En Vivo</span><strong id="bcvValue">Cargando...</strong></button>
+                <button class="danger-button" id="logoutButton" type="button">Salir</button>
+            </div>
+        </header>
+
+        <nav class="module-tabs" aria-label="Secciones del módulo">
+            <button class="module-tab is-active" type="button" data-tab-target="nuevo-gasto">Nuevo gasto</button>
+            <button class="module-tab" type="button" data-tab-target="historico">Histórico</button>
+        </nav>
+
+        <section class="layout-grid">
+            <article class="panel module-panel is-active" id="nuevo-gasto" data-panel="nuevo-gasto">
+                <div class="panel-header">
+                    <h2>Nuevo Gasto</h2>
+                    <span>Registro con comprobante</span>
+                </div>
+
+                <form class="expense-form" id="expenseForm">
+                    <div class="form-row form-section--meta">
+                        <div class="field">
+                            <label for="fecha">Fecha</label>
+                            <input id="fecha" name="fecha" type="date" required>
+                        </div>
+                        <div class="field">
+                            <label for="categoria">Categoría / Ítem</label>
+                            <select id="categoria" name="categoria" required><option value="">Cargando categorías...</option></select>
+                        </div>
+                    </div>
+
+                    <div class="form-row form-section--payment">
+                        <fieldset class="field">
+                            <legend>Moneda principal</legend>
+                            <div class="radio-toggle">
+                                <input id="monedaUsd" type="radio" name="moneda" value="USD" checked>
+                                <label for="monedaUsd">$ USD</label>
+                                <input id="monedaVes" type="radio" name="moneda" value="VES">
+                                <label for="monedaVes">Bs. VES</label>
+                            </div>
+                        </fieldset>
+                        <div class="field">
+                            <label for="numeroFactura">N° Factura / Comprobante</label>
+                            <input id="numeroFactura" name="numero_factura" type="text" placeholder="Ej. FAC-001245">
+                        </div>
+                    </div>
+
+                    <div class="field form-section--money">
+                        <label>Calculadora $ / VES</label>
+                        <div class="money-grid">
+                            <div class="money-input"><span>USD</span><input id="montoUsd" name="monto_usd" type="number" min="0" step="0.01" placeholder="0.00" required></div>
+                            <div class="money-input"><span>VES</span><input id="montoVes" name="monto_ves" type="number" min="0" step="0.01" placeholder="0.00" required></div>
+                        </div>
+                    </div>
+
+                    <div class="field form-section--description">
+                        <label for="descripcion">Descripción / Detalle</label>
+                        <textarea id="descripcion" name="descripcion" placeholder="Detalle breve del gasto"></textarea>
+                    </div>
+
+                    <fieldset class="field form-section--responsible">
+                        <legend>Responsable</legend>
+                        <div class="responsables">
+                            <input id="respIlver" type="radio" name="responsable" value="Ilver" checked>
+                            <label class="responsable-card" for="respIlver"><span class="avatar">I</span><span><strong>Ilver</strong><small>Operaciones</small></span></label>
+                            <input id="respManuel" type="radio" name="responsable" value="Manuel">
+                            <label class="responsable-card" for="respManuel"><span class="avatar">M</span><span><strong>Manuel</strong><small>Logística</small></span></label>
+                            <input id="respIrwin" type="radio" name="responsable" value="Irwin">
+                            <label class="responsable-card" for="respIrwin"><span class="avatar">IR</span><span><strong>Irwin</strong><small>Admin</small></span></label>
+                        </div>
+                    </fieldset>
+
+                    <div class="field form-section--receipt">
+                        <label for="comprobanteInput">Comprobante</label>
+                        <div class="drop-zone" id="dropZone" tabindex="0" role="button" aria-controls="comprobanteInput">
+                            <div><strong>Arrastra una foto o PDF aquí</strong><span>También puedes hacer clic para seleccionar.</span></div>
+                        </div>
+                        <input id="comprobanteInput" name="comprobante" type="file" accept="image/*,.pdf" hidden>
+                        <div class="preview" id="filePreview" aria-live="polite"></div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button class="ghost-button" type="reset">Limpiar</button>
+                        <button class="primary-button" id="submitButton" type="submit">Guardar gasto</button>
+                    </div>
+                </form>
+            </article>
+
+            <article class="panel module-panel" id="historico" data-panel="historico" hidden>
+                <div class="panel-header">
+                    <h2>Histórico y Reporte</h2>
+                    <span id="historyCount">0 registros</span>
+                </div>
+                <div class="report-body">
+                    <div class="filters-grid">
+                        <div class="field">
+                            <label for="periodFilter">Periodo</label>
+                            <select id="periodFilter">
+                                <option value="week">Esta semana</option>
+                                <option value="fortnight">Esta quincena</option>
+                                <option value="month" selected>Este mes</option>
+                                <option value="custom">Rango personalizado</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label for="fromDate">Desde</label>
+                            <input id="fromDate" type="date">
+                        </div>
+                        <div class="field">
+                            <label for="toDate">Hasta</label>
+                            <input id="toDate" type="date">
+                        </div>
+                    </div>
+
+                    <div class="summary-grid">
+                        <div class="metric"><span>Total USD</span><strong id="totalUsd">$ 0.00</strong></div>
+                        <div class="metric"><span>Total VES</span><strong id="totalVes">Bs. 0.00</strong></div>
+                        <div class="metric"><span>Comprobantes</span><strong id="totalReceipts">0</strong></div>
+                    </div>
+
+                    <div class="button-row">
+                        <button class="ghost-button" id="refreshButton" type="button">Refrescar</button>
+                        <button class="primary-button" id="exportButton" type="button">Exportar Excel</button>
+                    </div>
+
+                    <div class="expense-list" id="historyList">
+                        <div class="empty-state">Cargando histórico...</div>
+                    </div>
+                </div>
+            </article>
+        </section>
+    </main>
+
+    <script src="supabase-config.js"></script>
+    <script src="gastos.js"></script>
+</body>
+</html>
