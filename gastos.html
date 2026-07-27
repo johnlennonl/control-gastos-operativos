@@ -206,6 +206,17 @@
             background: #FEF2F2;
         }
 
+        .profile-button {
+            min-width: 118px;
+            border-color: #BFDBFE;
+            background: #EFF6FF;
+            color: #1D4ED8;
+        }
+
+        .profile-button:hover {
+            background: #DBEAFE;
+        }
+
         .money, .metric strong { font-family: var(--mono); }
 
         .module-tabs {
@@ -311,6 +322,7 @@
 
         .form-section--meta,
         .form-section--payment { grid-column: 1 / -1; }
+        .form-section--context { grid-column: 1 / -1; }
         .form-section--money,
         .form-section--rate { grid-column: span 6; }
         .form-section--money.is-direct { grid-column: 1 / -1; }
@@ -322,6 +334,7 @@
         .form-section--payment,
         .form-section--money,
         .form-section--rate,
+        .form-section--context,
         .form-section--description,
         .form-section--responsible,
         .form-section--receipt {
@@ -334,6 +347,10 @@
 
         .form-section--meta,
         .form-section--payment {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .form-section--context {
             grid-template-columns: repeat(3, minmax(0, 1fr));
         }
 
@@ -628,7 +645,7 @@
 
         .expense-header {
             display: grid;
-            grid-template-columns: 104px minmax(160px, 1.2fr) 128px 94px 104px 124px 78px 70px 150px;
+            grid-template-columns: 92px minmax(140px, 1.1fr) 116px 84px 96px 94px 112px 66px 64px 144px;
             gap: 10px;
             align-items: center;
             border: 1px solid var(--line);
@@ -644,7 +661,7 @@
 
         .expense-row {
             display: grid;
-            grid-template-columns: 104px minmax(160px, 1.2fr) 128px 94px 104px 124px 78px 70px 150px;
+            grid-template-columns: 92px minmax(140px, 1.1fr) 116px 84px 96px 94px 112px 66px 64px 144px;
             min-width: 0;
             gap: 10px;
             align-items: center;
@@ -745,6 +762,135 @@
         .empty-state { padding: 28px 16px; color: var(--muted); text-align: center; }
         .swal2-popup { font-family: var(--sans); }
 
+        .profile-modal-popup {
+            width: min(520px, calc(100vw - 28px));
+            border-radius: 14px;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .profile-modal-popup .swal2-html-container {
+            margin: 0;
+            padding: 0;
+        }
+
+        .profile-modal-card { text-align: left; }
+
+        .profile-modal-head {
+            border-bottom: 1px solid var(--line);
+            background: linear-gradient(135deg, #EFF6FF 0%, #FFFFFF 72%);
+            padding: 22px 24px 18px;
+        }
+
+        .profile-modal-kicker {
+            display: inline-flex;
+            align-items: center;
+            min-height: 24px;
+            border-radius: 999px;
+            background: #DBEAFE;
+            color: #1D4ED8;
+            padding: 4px 10px;
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .profile-modal-head h2 {
+            margin: 12px 0 6px;
+            color: var(--text);
+            font-size: 1.32rem;
+            line-height: 1.2;
+        }
+
+        .profile-modal-head p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 0.94rem;
+            line-height: 1.45;
+        }
+
+        .profile-modal-body {
+            display: grid;
+            gap: 12px;
+            padding: 18px 24px 22px;
+        }
+
+        .profile-email-chip {
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            background: #F8FAFC;
+            padding: 10px 12px;
+        }
+
+        .profile-email-chip span,
+        .profile-field label {
+            display: block;
+            color: #475569;
+            font-size: 0.76rem;
+            font-weight: 800;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+        }
+
+        .profile-field label span {
+            color: var(--muted);
+            font-weight: 700;
+            letter-spacing: 0;
+            text-transform: none;
+        }
+
+        .profile-email-chip strong {
+            display: block;
+            margin-top: 4px;
+            color: var(--text);
+            font-size: 0.95rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .profile-fields-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .profile-field--full {
+            grid-column: 1 / -1;
+        }
+
+        .profile-field input {
+            width: 100%;
+            min-height: 44px;
+            margin-top: 7px;
+            border: 1px solid var(--line-strong);
+            border-radius: var(--radius);
+            background: #FFFFFF;
+            color: var(--text);
+            padding: 10px 12px;
+            outline: none;
+        }
+
+        .profile-field input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37,99,235,0.13);
+        }
+
+        .profile-modal-popup .swal2-actions {
+            justify-content: flex-end;
+            margin: 0;
+            border-top: 1px solid var(--line);
+            padding: 14px 24px 20px;
+        }
+
+        .profile-modal-popup .swal2-confirm {
+            border-radius: var(--radius);
+            background: var(--primary) !important;
+            padding: 10px 16px;
+            font-weight: 800;
+            box-shadow: 0 8px 18px rgba(37,99,235,0.22);
+        }
+
         @media (max-width: 1180px) {
             .layout-grid { grid-template-columns: 1fr; }
             .expense-list { max-height: none; }
@@ -769,6 +915,7 @@
             .form-section--payment,
             .form-section--money,
             .form-section--rate,
+            .form-section--context,
             .form-section--description,
             .form-section--responsible,
             .form-section--receipt,
@@ -783,12 +930,13 @@
 
             .topbar { flex-direction: column; }
             .app-brand { align-items: flex-start; }
-            .top-actions, .user-chip, .logout-button { width: 100%; }
+            .top-actions, .user-chip, .profile-button, .logout-button { width: 100%; }
             .user-chip { justify-content: space-between; }
             .expense-form { grid-template-columns: 1fr; }
             .form-row, .money-grid, .responsables, .filters-grid, .summary-grid { grid-template-columns: 1fr; }
             .form-section--meta,
             .form-section--payment,
+            .form-section--context,
             .form-section--rate { grid-template-columns: 1fr; }
             .form-actions button, .button-row button { width: 100%; }
             .expense-form > .form-actions { justify-content: stretch; }
@@ -804,6 +952,7 @@
             .receipt-link,
             .edit-expense-button,
             .delete-expense-button { min-height: 32px; }
+            .profile-fields-grid { grid-template-columns: 1fr; }
         }
 
         @media (max-width: 520px) {
@@ -875,6 +1024,7 @@
             </div>
             <div class="top-actions">
                 <div class="user-chip"><span>Usuario</span><strong id="userEmail">Validando...</strong></div>
+                <button class="ghost-button profile-button" id="profileButton" type="button">Perfil</button>
                 <button class="danger-button logout-button" id="logoutButton" type="button">Cerrar sesión</button>
             </div>
         </header>
@@ -913,6 +1063,21 @@
                                 <option value="CAMBIO DE ACEITE">Cambio de aceite</option>
                                 <option value="SERVICIOS">Servicios</option>
                                 <option value="MANO DE OBRA">Mano de obra</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row form-section--context is-hidden" id="contextDetailSection">
+                        <div class="field is-hidden" id="vehiculoKilometrajeField">
+                            <label for="kilometraje">Kilometraje actual</label>
+                            <input id="kilometraje" name="kilometraje" type="number" min="0" step="1" placeholder="Ej. 45200">
+                        </div>
+                        <div class="field is-hidden" id="comidaDetalleField">
+                            <label for="comidaDetalle">Detalle de comida</label>
+                            <select id="comidaDetalle" name="detalle_actividad">
+                                <option value="">Selecciona el detalle</option>
+                                <option value="Jornada Laboral UVS">Jornada Laboral UVS</option>
+                                <option value="Evento">Evento</option>
                             </select>
                         </div>
                     </div>
@@ -1034,7 +1199,7 @@
 
                     <div class="button-row">
                         <button class="ghost-button" id="refreshButton" type="button">Refrescar</button>
-                        <button class="primary-button" id="exportButton" type="button">Exportar Excel</button>
+                        <button class="primary-button" id="exportButton" type="button" hidden>Exportar Excel</button>
                     </div>
 
                     <div class="expense-list" id="historyList">
@@ -1045,8 +1210,8 @@
         </section>
     </main>
 
-    <script src="supabase-config.js?v=20"></script>
-    <script src="app-install.js?v=20"></script>
-    <script src="gastos.js?v=20"></script>
+    <script src="supabase-config.js?v=31"></script>
+    <script src="app-install.js?v=31"></script>
+    <script src="gastos.js?v=31"></script>
 </body>
 </html>

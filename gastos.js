@@ -10,6 +10,7 @@ const PAYMENT_METHODS = {
     VES: ["Pago móvil", "Transferencia", "Punto de venta", "Efectivo Bs"]
 };
 const BASE_CATEGORIES = ["COMIDA", "HERRAMIENTAS", "MATERIALES", "EQUIPOS", "INSUMOS", "VEHICULOS"];
+const VEHICLE_KILOMETER_DETAILS = ["GASOLINA", "CAMBIO DE ACEITE", "SERVICIOS"];
 const HIDDEN_SEEDED_CATEGORIES = [
     "Gasolina",
     "Cambio de Aceite / Filtros",
@@ -29,6 +30,9 @@ const state = {
     syncingMoney: false,
     switchingTab: false,
     currentUser: null,
+    currentUserName: "",
+    userRole: "operador",
+    isAdmin: false,
     historyRows: []
 };
 
@@ -39,6 +43,11 @@ const elements = {
     deleteCategoryButton: document.querySelector("#deleteCategoryButton"),
     vehiculoDetalleField: document.querySelector("#vehiculoDetalleField"),
     vehiculoDetalle: document.querySelector("#vehiculoDetalle"),
+    contextDetailSection: document.querySelector("#contextDetailSection"),
+    vehiculoKilometrajeField: document.querySelector("#vehiculoKilometrajeField"),
+    kilometraje: document.querySelector("#kilometraje"),
+    comidaDetalleField: document.querySelector("#comidaDetalleField"),
+    comidaDetalle: document.querySelector("#comidaDetalle"),
     montoUsd: document.querySelector("#montoUsd"),
     montoVes: document.querySelector("#montoVes"),
     moneySection: document.querySelector("#moneySection"),
@@ -62,6 +71,7 @@ const elements = {
     historyCount: document.querySelector("#historyCount"),
     submitButton: document.querySelector("#submitButton"),
     logoutButton: document.querySelector("#logoutButton"),
+    profileButton: document.querySelector("#profileButton"),
     userEmail: document.querySelector("#userEmail"),
     periodFilter: document.querySelector("#periodFilter"),
     fromDate: document.querySelector("#fromDate"),
@@ -88,6 +98,153 @@ function hidePageLoader() {
     elements.pageLoader.setAttribute("aria-hidden", "true");
 }
 
+async function loadCurrentUserRole() {
+    const metadataRole = state.currentUser?.app_metadata?.rol || state.currentUser?.user_metadata?.rol;
+
+    if (metadataRole === "admin") {
+        setUserRole("admin");
+        return;
+    }
+
+    try {
+        const { data, error } = await supabaseClient
+            .from("usuarios_roles")
+            .select("rol")
+            .eq("user_id", state.currentUser.id)
+            .maybeSingle();
+
+        if (error) throw error;
+        setUserRole(data?.rol || "operador");
+    } catch (error) {
+        console.error(error);
+        setUserRole("operador");
+    }
+}
+
+async function loadCurrentUserProfile() {
+    try {
+        const { data, error } = await supabaseClient
+            .from("usuarios_perfiles")
+            .select("nombre")
+            .eq("user_id", state.currentUser.id)
+            .maybeSingle();
+
+        if (error) throw error;
+        state.currentUserName = data?.nombre || "";
+        updateUserChip();
+    } catch (error) {
+        console.error(error);
+        state.currentUserName = "";
+        updateUserChip();
+    }
+}
+
+async function openProfileModal() {
+    const result = await Swal.fire({
+        title: "",
+        customClass: { popup: "profile-modal-popup" },
+        html: `
+            <section class="profile-modal-card">
+                <div class="profile-modal-head">
+                    <span class="profile-modal-kicker">Cuenta</span>
+                    <h2>Perfil y seguridad</h2>
+                    <p>Actualiza tu nombre visible o cambia tu contraseña cuando lo necesites.</p>
+                </div>
+                <div class="profile-modal-body">
+                    <div class="profile-email-chip">
+                        <span>Correo de acceso</span>
+                        <strong>${escapeHtml(state.currentUser.email || "Usuario activo")}</strong>
+                    </div>
+                    <div class="profile-fields-grid">
+                        <div class="profile-field profile-field--full">
+                            <label for="swalDisplayName">Nombre visible <span>(opcional)</span></label>
+                            <input id="swalDisplayName" type="text" autocomplete="name" placeholder="Nombre visible" value="${escapeAttribute(state.currentUserName)}">
+                        </div>
+                        <div class="profile-field">
+                            <label for="swalPassword">Nueva contraseña <span>(opcional)</span></label>
+                            <input id="swalPassword" type="password" autocomplete="new-password" placeholder="Mínimo 6 caracteres">
+                        </div>
+                        <div class="profile-field">
+                            <label for="swalPasswordConfirm">Confirmar contraseña</label>
+                            <input id="swalPasswordConfirm" type="password" autocomplete="new-password" placeholder="Repite la contraseña">
+                        </div>
+                    </div>
+                </div>
+            </section>
+        `,
+        showCancelButton: true,
+        confirmButtonText: "Guardar cambios",
+        cancelButtonText: "Configurar luego",
+        focusConfirm: false,
+        didOpen: () => document.querySelector("#swalDisplayName")?.focus(),
+        preConfirm: () => {
+            const nombre = document.querySelector("#swalDisplayName").value.trim().replace(/\s+/g, " ");
+            const password = document.querySelector("#swalPassword").value;
+            const passwordConfirm = document.querySelector("#swalPasswordConfirm").value;
+
+            if (nombre && nombre.length < 2) {
+                Swal.showValidationMessage("El nombre debe tener al menos 2 caracteres.");
+                return false;
+            }
+
+            if ((password || passwordConfirm) && password.length < 6) {
+                Swal.showValidationMessage("La contraseña debe tener al menos 6 caracteres.");
+                return false;
+            }
+
+            if (password !== passwordConfirm) {
+                Swal.showValidationMessage("Las contraseñas no coinciden.");
+                return false;
+            }
+
+            return { nombre, password };
+        }
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+        if (result.value.nombre) {
+            const { error } = await supabaseClient
+                .from("usuarios_perfiles")
+                .upsert({
+                    user_id: state.currentUser.id,
+                    email: state.currentUser.email,
+                    nombre: result.value.nombre,
+                    updated_at: new Date().toISOString()
+                }, { onConflict: "user_id" });
+
+            if (error) throw error;
+            state.currentUserName = result.value.nombre;
+            updateUserChip();
+        }
+
+        if (result.value.password) {
+            const { error } = await supabaseClient.auth.updateUser({ password: result.value.password });
+            if (error) throw error;
+        }
+
+        await Swal.fire({ icon: "success", title: "Perfil actualizado", timer: 1300, showConfirmButton: false });
+    } catch (error) {
+        console.error(error);
+        await Swal.fire({ icon: "error", title: "No se pudo guardar", text: error.message });
+    }
+}
+
+function setUserRole(role) {
+    state.userRole = role === "admin" ? "admin" : "operador";
+    state.isAdmin = state.userRole === "admin";
+    updateUserChip();
+    elements.exportButton.hidden = !state.isAdmin;
+    elements.exportButton.disabled = !state.isAdmin;
+    elements.exportButton.title = state.isAdmin ? "" : "Solo administrador";
+}
+
+function updateUserChip() {
+    elements.userEmail.textContent = state.currentUserName || state.currentUser?.email || "Usuario activo";
+    elements.profileButton.textContent = "Perfil";
+}
+
 async function init() {
     showPageLoader();
     const { data, error } = await supabaseClient.auth.getSession();
@@ -100,6 +257,8 @@ async function init() {
 
     state.currentUser = data.session.user;
     elements.userEmail.textContent = state.currentUser.email || "Usuario activo";
+    await loadCurrentUserRole();
+    await loadCurrentUserProfile();
     elements.fecha.value = toDateInput(new Date());
     state.tasaBinance = Number(localStorage.getItem(BINANCE_RATE_STORAGE_KEY)) || 0;
     renderPaymentMethods("USD");
@@ -124,6 +283,7 @@ function bindEvents() {
     elements.tabButtons.forEach((button) => {
         button.addEventListener("click", () => activateTab(button.dataset.tabTarget));
     });
+    elements.profileButton.addEventListener("click", () => openProfileModal());
     elements.logoutButton.addEventListener("click", logout);
     elements.categoria.addEventListener("change", handleCategoryChange);
     elements.deleteCategoryButton.addEventListener("click", deleteSelectedCategory);
@@ -131,6 +291,8 @@ function bindEvents() {
         if (elements.categoria.value) {
             elements.categoria.dataset.previous = elements.categoria.value;
         }
+
+        updateContextDetailVisibility();
     });
     elements.monedaUsd.addEventListener("change", handleCurrencyModeChange);
     elements.monedaVes.addEventListener("change", handleCurrencyModeChange);
@@ -544,6 +706,7 @@ function renderCategorias(selectedId = "") {
     elements.categoria.innerHTML = options.join("");
     elements.categoria.value = selectedId;
     updateVehicleDetailVisibility();
+    updateContextDetailVisibility();
     updateCategoryActions();
 }
 
@@ -555,6 +718,7 @@ async function handleCategoryChange() {
 
     elements.categoria.dataset.previous = elements.categoria.value;
     updateVehicleDetailVisibility();
+    updateContextDetailVisibility();
     updateCategoryActions();
 }
 
@@ -586,6 +750,7 @@ async function createCategoryModal() {
     if (!result.isConfirmed) {
         elements.categoria.value = previousValue;
         updateVehicleDetailVisibility();
+        updateContextDetailVisibility();
         updateCategoryActions();
         return;
     }
@@ -643,6 +808,36 @@ function updateVehicleDetailVisibility() {
     if (!isVehicle) {
         elements.vehiculoDetalle.value = "";
     }
+
+    updateContextDetailVisibility();
+}
+
+function updateContextDetailVisibility() {
+    const needsKilometraje = shouldAskKilometraje();
+    const needsComidaDetalle = shouldAskComidaDetalle();
+
+    elements.contextDetailSection.classList.toggle("is-hidden", !needsKilometraje && !needsComidaDetalle);
+    elements.vehiculoKilometrajeField.classList.toggle("is-hidden", !needsKilometraje);
+    elements.comidaDetalleField.classList.toggle("is-hidden", !needsComidaDetalle);
+    elements.kilometraje.required = needsKilometraje;
+    elements.comidaDetalle.required = needsComidaDetalle;
+
+    if (!needsKilometraje) {
+        elements.kilometraje.value = "";
+    }
+
+    if (!needsComidaDetalle) {
+        elements.comidaDetalle.value = "";
+    }
+}
+
+function shouldAskKilometraje() {
+    return elements.categoria.value === `${STATIC_CATEGORY_PREFIX}VEHICULOS` && VEHICLE_KILOMETER_DETAILS.includes(elements.vehiculoDetalle.value);
+}
+
+function shouldAskComidaDetalle() {
+    const selectedCategory = getSelectedCategory();
+    return normalizeCategoryName(selectedCategory?.nombre || "") === "comida";
 }
 
 function updateCategoryActions() {
@@ -797,6 +992,18 @@ async function saveExpense(event) {
         return;
     }
 
+    if (shouldAskKilometraje() && parseCurrency(elements.kilometraje.value) <= 0) {
+        await Swal.fire({ icon: "warning", title: "Kilometraje requerido", text: "Ingresa el kilometraje actual para este gasto de vehículo." });
+        elements.kilometraje.focus();
+        return;
+    }
+
+    if (shouldAskComidaDetalle() && !elements.comidaDetalle.value) {
+        await Swal.fire({ icon: "warning", title: "Detalle de comida requerido", text: "Indica si corresponde a Jornada Laboral UVS o Evento." });
+        elements.comidaDetalle.focus();
+        return;
+    }
+
     if (usesRate && activeRate <= 0) {
         await Swal.fire({ icon: "warning", title: "Falta la tasa", text: "Carga una tasa válida antes de guardar." });
         elements.tasaCambio.focus();
@@ -831,6 +1038,8 @@ async function saveExpense(event) {
         monto_usd: montoDivisa,
         tasa_bcv: usesRate ? Number(activeRate.toFixed(4)) : 0,
         monto_ves: montoVes,
+        kilometraje: shouldAskKilometraje() ? Math.round(parseCurrency(elements.kilometraje.value)) : null,
+        detalle_actividad: shouldAskComidaDetalle() ? elements.comidaDetalle.value : null,
         descripcion: cleanText(elements.descripcion.value),
         responsable,
         comprobante_url: null
@@ -950,7 +1159,7 @@ async function loadHistorico() {
 
     let query = supabaseClient
         .from("gastos_operativos")
-        .select("id,user_email,fecha,categoria_nombre,numero_factura,moneda,forma_pago,tipo_tasa,monto_usd,tasa_bcv,monto_ves,descripcion,responsable,comprobante_url,created_at")
+        .select("id,user_email,fecha,categoria_nombre,numero_factura,moneda,forma_pago,tipo_tasa,monto_usd,tasa_bcv,monto_ves,kilometraje,detalle_actividad,descripcion,responsable,comprobante_url,created_at")
         .order("fecha", { ascending: false })
         .order("created_at", { ascending: false });
 
@@ -988,6 +1197,7 @@ function renderHistorico(rows) {
             <span>Categoría</span>
             <span>Pago/Tasa</span>
             <span>Factura</span>
+            <span>Detalle</span>
             <span>Monto divisa</span>
             <span>Monto VES</span>
             <span>Resp.</span>
@@ -1002,6 +1212,7 @@ function renderHistorico(rows) {
             <div class="wide category-cell"><small>Categoría</small><strong title="${escapeAttribute(row.categoria_nombre || "")}">${escapeHtml(row.categoria_nombre || "-")}</strong></div>
             <div><small>Pago/Tasa</small><strong>${escapeHtml(row.forma_pago || "-")}</strong><span>${escapeHtml(getRateDisplay(row))}</span></div>
             <div><small>Factura</small><span>${escapeHtml(row.numero_factura || "-")}</span></div>
+            <div><small>Detalle</small><span>${escapeHtml(getOperationalDetail(row))}</span></div>
             <div class="amount-cell"><small>Monto</small><span class="money">${getMoneyUnit(row.tipo_tasa)} ${formatNumber(row.monto_usd, 2)}</span><span class="money">Bs. ${formatNumber(row.monto_ves, 2)}</span></div>
             <div><small>Resp.</small><span>${escapeHtml(row.responsable || "-")}</span></div>
             <div class="expense-tools">
@@ -1098,6 +1309,12 @@ async function editExpense(row) {
                     </select>
                 </label>
                 <label>Tasa usada<input id="editTasaCambio" class="swal2-input" type="number" min="0" step="0.0001" value="${escapeAttribute(row.tasa_bcv || 0)}"></label>
+                <label>Kilometraje<input id="editKilometraje" class="swal2-input" type="number" min="0" step="1" value="${escapeAttribute(row.kilometraje || "")}" placeholder="Solo si aplica"></label>
+                <label>Detalle comida
+                    <select id="editDetalleActividad" class="swal2-select">
+                        ${["", "Jornada Laboral UVS", "Evento"].map((detail) => `<option value="${escapeAttribute(detail)}" ${(row.detalle_actividad || "") === detail ? "selected" : ""}>${detail ? escapeHtml(detail) : "Sin detalle"}</option>`).join("")}
+                    </select>
+                </label>
                 <label>Responsable
                     <select id="editResponsable" class="swal2-select">
                         ${["Ilver", "Manuel", "Irwin"].map((name) => `<option value="${name}" ${row.responsable === name ? "selected" : ""}>${name}</option>`).join("")}
@@ -1140,6 +1357,8 @@ async function editExpense(row) {
                 tasa_bcv: tipoTasa === "DIRECTO" ? 0 : Number(tasaCambio.toFixed(4)),
                 monto_usd: montoUsd,
                 monto_ves: montoVes,
+                kilometraje: parseCurrency(document.querySelector("#editKilometraje").value) > 0 ? Math.round(parseCurrency(document.querySelector("#editKilometraje").value)) : null,
+                detalle_actividad: cleanText(document.querySelector("#editDetalleActividad").value),
                 responsable: document.querySelector("#editResponsable").value,
                 descripcion: cleanText(document.querySelector("#editDescripcion").value)
             };
@@ -1215,7 +1434,26 @@ function renderReceiptLink(url) {
     return `<a class="receipt-link" href="${escapeAttribute(url)}" target="_blank" rel="noopener">Ver</a>`;
 }
 
+function getOperationalDetail(row) {
+    const details = [];
+
+    if (row.detalle_actividad) {
+        details.push(row.detalle_actividad);
+    }
+
+    if (row.kilometraje) {
+        details.push(`${formatNumber(row.kilometraje, 0)} km`);
+    }
+
+    return details.join(" · ") || "-";
+}
+
 function exportExcel() {
+    if (!state.isAdmin) {
+        Swal.fire({ icon: "warning", title: "Solo administrador", text: "Tu usuario no tiene permiso para generar el Excel." });
+        return;
+    }
+
     if (!state.historyRows.length) {
         Swal.fire({ icon: "info", title: "Sin datos", text: "No hay gastos para exportar en este periodo." });
         return;
@@ -1232,6 +1470,8 @@ function exportExcel() {
         "Unidad divisa": getMoneyUnit(row.tipo_tasa),
         "Monto divisa": Number(row.monto_usd || 0),
         "Monto VES": Number(row.monto_ves || 0),
+        Kilometraje: row.kilometraje || "",
+        "Detalle actividad": row.detalle_actividad || "",
         Responsable: row.responsable || "",
         "Registrado por": row.user_email || "",
         Descripcion: row.descripcion || "",
@@ -1241,8 +1481,8 @@ function exportExcel() {
     const worksheet = XLSX.utils.json_to_sheet(rows);
     worksheet["!cols"] = [
         { wch: 12 }, { wch: 28 }, { wch: 18 }, { wch: 14 }, { wch: 18 }, { wch: 14 },
-        { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 28 },
-        { wch: 36 }, { wch: 48 }
+        { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 22 },
+        { wch: 16 }, { wch: 28 }, { wch: 36 }, { wch: 48 }
     ];
 
     const workbook = XLSX.utils.book_new();
@@ -1285,7 +1525,10 @@ function resetFormState() {
     state.tempCategory = null;
     renderCategorias();
     elements.vehiculoDetalle.value = "";
+    elements.kilometraje.value = "";
+    elements.comidaDetalle.value = "";
     updateVehicleDetailVisibility();
+    updateContextDetailVisibility();
     state.selectedFile = null;
     elements.comprobanteInput.value = "";
     elements.filePreview.classList.remove("is-visible");
