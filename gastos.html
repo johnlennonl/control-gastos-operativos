@@ -593,19 +593,35 @@
             text-decoration: none;
         }
 
+        .expense-actions {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .edit-expense-button,
         .delete-expense-button {
             display: inline-flex;
             align-items: center;
             justify-content: center;
             min-height: 34px;
-            border: 1px solid #FECACA;
             border-radius: 6px;
-            background: #FEF2F2;
-            color: var(--danger);
             padding: 6px 10px;
             font-size: 0.82rem;
             font-weight: 800;
             cursor: pointer;
+        }
+
+        .edit-expense-button {
+            border: 1px solid #BFDBFE;
+            background: #EFF6FF;
+            color: #1D4ED8;
+        }
+
+        .delete-expense-button {
+            border: 1px solid #FECACA;
+            background: #FEF2F2;
+            color: var(--danger);
         }
 
         .empty-state { padding: 28px 16px; color: var(--muted); text-align: center; }
@@ -661,7 +677,7 @@
             .panel-header { align-items: flex-start; flex-direction: column; padding: 14px; }
             .expense-form, .report-body { padding: 14px; }
             .expense-row { grid-template-columns: 1fr; padding: 12px; }
-            .receipt-link, .delete-expense-button { width: 100%; }
+            .expense-actions, .receipt-link, .edit-expense-button, .delete-expense-button { width: 100%; }
             .preview { align-items: flex-start; flex-direction: column; }
             .preview .ghost-button { width: 100%; }
         }
@@ -824,8 +840,8 @@
         </section>
     </main>
 
-    <script src="supabase-config.js?v=5"></script>
-    <script src="app-install.js?v=5"></script>
-    <script src="gastos.js?v=5"></script>
+    <script src="supabase-config.js?v=7"></script>
+    <script src="app-install.js?v=7"></script>
+    <script src="gastos.js?v=7"></script>
 </body>
 </html>

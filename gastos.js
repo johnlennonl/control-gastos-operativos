@@ -2,6 +2,7 @@ const NEW_CATEGORY_VALUE = "__new_category__";
 const TEMP_CATEGORY_VALUE = "__temp_category__";
 const STATIC_CATEGORY_PREFIX = "static:";
 const BCV_RATE_STORAGE_KEY = "gastos_operativos_tasa_bcv";
+const BCV_REFRESH_INTERVAL_MS = 30 * 60 * 1000;
 const BASE_CATEGORIES = ["COMIDA", "HERRAMIENTAS", "MATERIALES", "EQUIPOS", "INSUMOS", "VEHICULOS"];
 const HIDDEN_SEEDED_CATEGORIES = [
     "Gasolina",
@@ -79,6 +80,8 @@ async function init() {
         loadCategorias(),
         loadHistorico()
     ]);
+
+    setupBcvAutoRefresh();
 }
 
 function bindEvents() {
@@ -161,7 +164,18 @@ async function logout() {
     window.location.href = "index.html";
 }
 
-async function loadBcvRate() {
+function setupBcvAutoRefresh() {
+    setInterval(() => loadBcvRate({ silent: true }), BCV_REFRESH_INTERVAL_MS);
+
+    document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) {
+            loadBcvRate({ silent: true });
+        }
+    });
+}
+
+async function loadBcvRate(options = {}) {
+    const { silent = false } = options;
     const savedRate = Number(localStorage.getItem(BCV_RATE_STORAGE_KEY));
 
     if (Number.isFinite(savedRate) && savedRate > 0) {
@@ -181,7 +195,7 @@ async function loadBcvRate() {
     } catch (error) {
         console.error(error);
 
-        if (state.tasaBcv > 0) {
+        if (state.tasaBcv > 0 || silent) {
             return;
         }
 
@@ -697,7 +711,13 @@ function renderHistorico(rows) {
             <div class="amount-cell"><small>Monto</small><span class="money">$ ${formatNumber(row.monto_usd, 2)}</span><span class="money">Bs. ${formatNumber(row.monto_ves, 2)}</span></div>
             <div><small>Resp.</small><span>${escapeHtml(row.responsable || "-")}</span></div>
             <div><small>Soporte</small>${renderReceiptLink(row.comprobante_url)}</div>
-            <div><small>Acción</small><button class="delete-expense-button" type="button" data-expense-id="${escapeAttribute(row.id)}">Eliminar</button></div>
+            <div>
+                <small>Acción</small>
+                <div class="expense-actions">
+                    <button class="edit-expense-button" type="button" data-expense-id="${escapeAttribute(row.id)}">Editar</button>
+                    <button class="delete-expense-button" type="button" data-expense-id="${escapeAttribute(row.id)}">Eliminar</button>
+                </div>
+            </div>
         </article>
     `).join("");
 
@@ -705,6 +725,13 @@ function renderHistorico(rows) {
 }
 
 async function handleHistoryClick(event) {
+    const editButton = event.target.closest(".edit-expense-button");
+    if (editButton) {
+        const row = state.historyRows.find((item) => item.id === editButton.dataset.expenseId);
+        if (row) await editExpense(row);
+        return;
+    }
+
     const deleteButton = event.target.closest(".delete-expense-button");
     if (!deleteButton) return;
 
@@ -713,10 +740,10 @@ async function handleHistoryClick(event) {
 
     const result = await Swal.fire({
         icon: "warning",
-        title: "Eliminar gasto",
-        text: "Se borrará este registro de prueba y su comprobante si existe.",
+        title: "¿Seguro que deseas eliminar este gasto?",
+        text: "Esta acción borrará el registro del histórico y su comprobante si existe. No se puede deshacer.",
         showCancelButton: true,
-        confirmButtonText: "Eliminar",
+        confirmButtonText: "Sí, eliminar",
         cancelButtonText: "Cancelar",
         confirmButtonColor: "#DC2626"
     });
@@ -752,6 +779,76 @@ async function handleHistoryClick(event) {
         deleteButton.disabled = false;
         deleteButton.textContent = "Eliminar";
         await Swal.fire({ icon: "error", title: "No se pudo eliminar", text: error.message });
+    }
+}
+
+async function editExpense(row) {
+    const result = await Swal.fire({
+        title: "Editar gasto",
+        html: `
+            <div style="display:grid;gap:10px;text-align:left;">
+                <label>Fecha<input id="editFecha" class="swal2-input" type="date" value="${escapeAttribute(row.fecha || "")}"></label>
+                <label>N° Factura / Comprobante<input id="editFactura" class="swal2-input" type="text" value="${escapeAttribute(row.numero_factura || "")}" placeholder="Ej. FAC-001245"></label>
+                <label>Monto USD<input id="editMontoUsd" class="swal2-input" type="number" min="0" step="0.01" value="${escapeAttribute(row.monto_usd || 0)}"></label>
+                <label>Monto VES<input id="editMontoVes" class="swal2-input" type="number" min="0" step="0.01" value="${escapeAttribute(row.monto_ves || 0)}"></label>
+                <label>Responsable
+                    <select id="editResponsable" class="swal2-select">
+                        ${["Ilver", "Manuel", "Irwin"].map((name) => `<option value="${name}" ${row.responsable === name ? "selected" : ""}>${name}</option>`).join("")}
+                    </select>
+                </label>
+                <label>Descripción<textarea id="editDescripcion" class="swal2-textarea" placeholder="Detalle breve del gasto">${escapeHtml(row.descripcion || "")}</textarea></label>
+            </div>
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: "Guardar cambios",
+        cancelButtonText: "Cancelar",
+        preConfirm: () => {
+            const fecha = document.querySelector("#editFecha").value;
+            const montoUsd = roundMoney(parseCurrency(document.querySelector("#editMontoUsd").value));
+            const montoVes = roundMoney(parseCurrency(document.querySelector("#editMontoVes").value));
+
+            if (!fecha) {
+                Swal.showValidationMessage("Selecciona la fecha del gasto.");
+                return false;
+            }
+
+            if (!montoUsd && !montoVes) {
+                Swal.showValidationMessage("Ingresa el monto en USD o VES.");
+                return false;
+            }
+
+            return {
+                fecha,
+                numero_factura: cleanText(document.querySelector("#editFactura").value),
+                monto_usd: montoUsd,
+                monto_ves: montoVes,
+                responsable: document.querySelector("#editResponsable").value,
+                descripcion: cleanText(document.querySelector("#editDescripcion").value)
+            };
+        }
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+        const { data, error } = await supabaseClient
+            .from("gastos_operativos")
+            .update(result.value)
+            .eq("id", row.id)
+            .select("id");
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+            throw new Error("Supabase no actualizó el registro. Revisa la política UPDATE o que el gasto pertenezca a tu usuario.");
+        }
+
+        await Swal.fire({ icon: "success", title: "Gasto actualizado", timer: 1300, showConfirmButton: false });
+        await loadHistorico();
+    } catch (error) {
+        console.error(error);
+        await Swal.fire({ icon: "error", title: "No se pudo editar", text: error.message });
     }
 }
 
