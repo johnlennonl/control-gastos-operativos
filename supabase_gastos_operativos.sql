@@ -135,7 +135,15 @@ drop policy if exists "Usuarios autenticados ven historico operativo" on public.
 create policy "Usuarios autenticados ven historico operativo"
 on public.gastos_operativos for select
 to authenticated
-using (true);
+using (
+    user_id = auth.uid()
+    or exists (
+        select 1
+        from public.usuarios_roles ur
+        where ur.user_id = auth.uid()
+          and ur.rol = 'admin'
+    )
+);
 
 drop policy if exists "Usuarios crean sus gastos" on public.gastos_operativos;
 create policy "Usuarios crean sus gastos"
@@ -147,8 +155,24 @@ drop policy if exists "Usuarios actualizan sus gastos" on public.gastos_operativ
 create policy "Usuarios actualizan sus gastos"
 on public.gastos_operativos for update
 to authenticated
-using (user_id = auth.uid())
-with check (user_id = auth.uid());
+using (
+    user_id = auth.uid()
+    or exists (
+        select 1
+        from public.usuarios_roles ur
+        where ur.user_id = auth.uid()
+          and ur.rol = 'admin'
+    )
+)
+with check (
+    user_id = auth.uid()
+    or exists (
+        select 1
+        from public.usuarios_roles ur
+        where ur.user_id = auth.uid()
+          and ur.rol = 'admin'
+    )
+);
 
 drop policy if exists "Usuarios eliminan sus gastos" on public.gastos_operativos;
 create policy "Usuarios eliminan sus gastos"
@@ -159,6 +183,12 @@ using (
     user_id = auth.uid()
     or user_id is null
     or user_email = (auth.jwt() ->> 'email')
+    or exists (
+        select 1
+        from public.usuarios_roles ur
+        where ur.user_id = auth.uid()
+          and ur.rol = 'admin'
+    )
 );
 
 insert into storage.buckets (id, name, public)

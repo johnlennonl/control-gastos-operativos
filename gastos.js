@@ -235,6 +235,24 @@ function setUserRole(role) {
     state.userRole = role === "admin" ? "admin" : "operador";
     state.isAdmin = state.userRole === "admin";
     updateUserChip();
+    syncAdminAccess();
+}
+
+function syncAdminAccess() {
+    const historyTab = Array.from(elements.tabButtons).find((button) => button.dataset.tabTarget === "historico");
+
+    if (historyTab) {
+        historyTab.hidden = !state.isAdmin;
+        historyTab.disabled = !state.isAdmin;
+    }
+
+    const historyPanel = Array.from(elements.modulePanels).find((panel) => panel.dataset.panel === "historico");
+    if (!state.isAdmin && historyPanel) {
+        historyPanel.hidden = true;
+        historyPanel.classList.remove("is-active", "is-entering", "is-leaving");
+        activateTab("nuevo-gasto");
+    }
+
     elements.exportButton.hidden = !state.isAdmin;
     elements.exportButton.disabled = !state.isAdmin;
     elements.exportButton.title = state.isAdmin ? "" : "Solo administrador";
@@ -268,12 +286,12 @@ async function init() {
     bindEvents();
     setPeriodDates("month");
 
-    await Promise.all([
-        loadBcvRate(),
-        loadBcvEuroRate(),
-        loadCategorias(),
-        loadHistorico()
-    ]);
+    const startupTasks = [loadBcvRate(), loadBcvEuroRate(), loadCategorias()];
+    if (state.isAdmin) {
+        startupTasks.push(loadHistorico());
+    }
+
+    await Promise.all(startupTasks);
 
     setupBcvAutoRefresh();
     hidePageLoader();
@@ -349,6 +367,7 @@ function bindEvents() {
 
 async function activateTab(target) {
     if (state.switchingTab) return;
+    if (target === "historico" && !state.isAdmin) return;
 
     const currentPanel = Array.from(elements.modulePanels).find((panel) => !panel.hidden);
     const nextPanel = Array.from(elements.modulePanels).find((panel) => panel.dataset.panel === target);
@@ -1062,8 +1081,10 @@ async function saveExpense(event) {
         await handlePostSaveCategoryPersistence(insertedExpense?.id);
         elements.form.reset();
         resetFormState();
-        await loadHistorico();
-        activateTab("historico");
+        if (state.isAdmin) {
+            await loadHistorico();
+            activateTab("historico");
+        }
     } catch (error) {
         console.error(error);
         await Swal.fire({ icon: "error", title: "No se pudo guardar", text: error.message });
@@ -1154,6 +1175,11 @@ async function uploadReceipt(file) {
 }
 
 async function loadHistorico() {
+    if (!state.isAdmin) {
+        state.historyRows = [];
+        return;
+    }
+
     const from = elements.fromDate.value;
     const to = elements.toDate.value;
 

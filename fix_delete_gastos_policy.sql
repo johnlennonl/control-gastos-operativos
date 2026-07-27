@@ -8,6 +8,12 @@ using (
     user_id = auth.uid()
     or user_id is null
     or user_email = (auth.jwt() ->> 'email')
+    or exists (
+        select 1
+        from public.usuarios_roles ur
+        where ur.user_id = auth.uid()
+          and ur.rol = 'admin'
+    )
 );
 
 drop policy if exists "Usuarios eliminan sus comprobantes" on storage.objects;
