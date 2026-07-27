@@ -41,13 +41,18 @@
             max-width: 100%;
             min-height: 100vh;
             overflow-x: hidden;
-            background: linear-gradient(180deg, #FFFFFF 0, var(--bg) 260px);
+            background:
+                linear-gradient(115deg, rgba(37,99,235,0.08) 0 34%, transparent 34% 100%),
+                linear-gradient(180deg, #FFFFFF 0%, var(--bg) 48%, #EEF6FF 100%);
             color: var(--text);
             font-family: var(--sans);
             font-variant-numeric: tabular-nums;
         }
 
-        button, input, select, textarea { font: inherit; }
+        button, input, select, textarea {
+            min-width: 0;
+            font: inherit;
+        }
 
         .app-shell {
             width: min(1320px, calc(100% - 32px));
@@ -64,10 +69,40 @@
             gap: 16px;
             min-width: 0;
             margin-bottom: 18px;
+            border: 1px solid rgba(226,232,240,0.88);
+            border-radius: var(--radius);
+            background: rgba(255,255,255,0.78);
+            box-shadow: var(--shadow);
+            padding: 16px;
         }
 
         .topbar > div {
             min-width: 0;
+        }
+
+        .app-brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .app-logo {
+            display: grid;
+            place-items: center;
+            width: 46px;
+            height: 46px;
+            flex: 0 0 46px;
+            border: 1px solid #BFDBFE;
+            border-radius: var(--radius);
+            background: #EFF6FF;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        .app-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
 
         .eyebrow {
@@ -145,10 +180,11 @@
             gap: 8px;
             border: 1px solid var(--line);
             border-radius: var(--radius);
-            background: var(--surface-soft);
+            background: rgba(241,245,249,0.86);
             margin-bottom: 16px;
             padding: 6px;
             box-shadow: var(--shadow);
+            backdrop-filter: blur(12px);
         }
 
         .module-tab {
@@ -178,8 +214,9 @@
             min-width: 0;
             border: 1px solid var(--line);
             border-radius: var(--radius);
-            background: var(--surface);
-            box-shadow: var(--shadow);
+            background: rgba(255,255,255,0.92);
+            box-shadow: 0 18px 50px rgba(15,23,42,0.08);
+            overflow: hidden;
         }
 
         .module-panel[hidden] {
@@ -216,12 +253,25 @@
             gap: 12px;
         }
 
-        .form-section--meta { grid-column: span 4; }
-        .form-section--payment { grid-column: span 4; }
-        .form-section--money { grid-column: span 4; }
+        .form-section--meta { grid-column: span 6; }
+        .form-section--payment { grid-column: span 6; }
+        .form-section--money { grid-column: span 5; }
         .form-section--description { grid-column: span 7; }
-        .form-section--responsible { grid-column: span 5; }
-        .form-section--receipt { grid-column: 1 / -1; }
+        .form-section--responsible { grid-column: span 7; }
+        .form-section--receipt { grid-column: span 5; }
+
+        .form-section--meta,
+        .form-section--payment,
+        .form-section--money,
+        .form-section--description,
+        .form-section--responsible,
+        .form-section--receipt {
+            min-width: 0;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            background: rgba(248,250,252,0.78);
+            padding: 14px;
+        }
 
         .expense-form > .form-actions {
             grid-column: 1 / -1;
@@ -231,8 +281,13 @@
             padding-top: 16px;
         }
 
-        .field { display: flex; flex-direction: column; gap: 7px; }
+        .field { display: flex; min-width: 0; flex-direction: column; gap: 7px; }
         fieldset.field { min-width: 0; margin: 0; padding: 0; border: 0; }
+
+        fieldset.form-section--responsible {
+            border: 1px solid var(--line);
+            padding: 14px;
+        }
 
         .field label, .field legend {
             color: #334155;
@@ -242,6 +297,7 @@
 
         .field input, .field select, .field textarea {
             width: 100%;
+            max-width: 100%;
             min-height: 42px;
             border: 1px solid var(--line-strong);
             border-radius: var(--radius);
@@ -250,6 +306,16 @@
             padding: 9px 11px;
             outline: none;
             transition: border-color 160ms ease, box-shadow 160ms ease;
+        }
+
+        .field input[type="date"] {
+            min-width: 0;
+            appearance: none;
+        }
+
+        .field input[type="date"]::-webkit-date-and-time-value {
+            min-width: 0;
+            text-align: left;
         }
 
         .field textarea { min-height: 76px; resize: vertical; }
@@ -271,7 +337,11 @@
 
         .radio-toggle input, .responsables input {
             position: absolute;
+            width: 1px;
+            height: 1px;
+            margin: 0;
             opacity: 0;
+            overflow: hidden;
             pointer-events: none;
         }
 
@@ -555,6 +625,7 @@
             }
 
             .topbar { flex-direction: column; }
+            .app-brand { align-items: flex-start; }
             .top-actions, .bcv-badge, .user-chip { width: 100%; }
             .bcv-badge, .user-chip { justify-content: space-between; }
             .expense-form { grid-template-columns: 1fr; }
@@ -585,9 +656,12 @@
 <body>
     <main class="app-shell">
         <header class="topbar">
-            <div>
-                <p class="eyebrow">Registros Operativos</p>
-                <h1>Control de gastos operativos</h1>
+            <div class="app-brand">
+                <span class="app-logo"><img src="image.png" alt=""></span>
+                <div>
+                    <p class="eyebrow">Registros Operativos</p>
+                    <h1>Control de gastos operativos</h1>
+                </div>
             </div>
             <div class="top-actions">
                 <div class="user-chip"><span>Usuario</span><strong id="userEmail">Validando...</strong></div>

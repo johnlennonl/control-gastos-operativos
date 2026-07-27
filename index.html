@@ -14,12 +14,16 @@
 		:root {
 			--bg: #F8FAFC;
 			--surface: #FFFFFF;
+			--surface-soft: #F1F5F9;
 			--text: #1E293B;
 			--muted: #64748B;
 			--line: #E2E8F0;
+			--line-strong: #CBD5E1;
 			--primary: #2563EB;
 			--primary-soft: #DBEAFE;
+			--success: #16A34A;
 			--shadow: 0 4px 20px rgba(0,0,0,0.05);
+			--shadow-strong: 0 18px 50px rgba(15,23,42,0.10);
 			--radius: 8px;
 			--sans: "IBM Plex Sans", "Segoe UI", sans-serif;
 			--mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
@@ -32,7 +36,9 @@
 		body {
 			margin: 0;
 			min-height: 100vh;
-			background: linear-gradient(135deg, #FFFFFF 0%, var(--bg) 48%, #EEF6FF 100%);
+			background:
+				linear-gradient(115deg, rgba(37,99,235,0.08) 0 32%, transparent 32% 100%),
+				linear-gradient(180deg, #FFFFFF 0%, var(--bg) 48%, #EEF6FF 100%);
 			color: var(--text);
 			font-family: var(--sans);
 			font-variant-numeric: tabular-nums;
@@ -43,20 +49,82 @@
 			font: inherit;
 		}
 
+		.login-page {
+			display: grid;
+			grid-template-rows: auto 1fr auto;
+			min-height: 100vh;
+		}
+
+		.login-topbar {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 16px;
+			width: min(1180px, calc(100% - 32px));
+			margin: 0 auto;
+			padding: 22px 0;
+		}
+
+		.brand-mark {
+			display: inline-flex;
+			align-items: center;
+			gap: 10px;
+			min-width: 0;
+			font-weight: 800;
+		}
+
+		.brand-logo {
+			display: grid;
+			place-items: center;
+			width: 38px;
+			height: 38px;
+			border: 1px solid #BFDBFE;
+			border-radius: var(--radius);
+			background: #EFF6FF;
+			overflow: hidden;
+		}
+
+		.brand-logo img {
+			width: 100%;
+			height: 100%;
+			object-fit: cover;
+		}
+
+		.topbar-status {
+			display: inline-flex;
+			align-items: center;
+			gap: 8px;
+			border: 1px solid var(--line);
+			border-radius: 999px;
+			background: rgba(255,255,255,0.76);
+			color: var(--muted);
+			padding: 8px 12px;
+			font-size: 0.86rem;
+			font-weight: 700;
+		}
+
+		.status-dot {
+			width: 8px;
+			height: 8px;
+			border-radius: 999px;
+			background: var(--success);
+			box-shadow: 0 0 0 4px rgba(22,163,74,0.12);
+		}
+
 		.login-shell {
 			display: grid;
-			grid-template-columns: minmax(0, 1fr) 420px;
+			grid-template-columns: minmax(0, 1.05fr) minmax(360px, 420px);
 			align-items: center;
-			width: min(1080px, calc(100% - 32px));
-			min-height: 100vh;
+			width: min(1180px, calc(100% - 32px));
+			min-height: calc(100vh - 128px);
 			margin: 0 auto;
-			gap: 42px;
-			padding: 42px 0;
+			gap: 54px;
+			padding: 18px 0 36px;
 		}
 
 		.brand-panel {
 			display: grid;
-			gap: 22px;
+			gap: 24px;
 		}
 
 		.eyebrow {
@@ -71,8 +139,8 @@
 		h1 {
 			margin: 0;
 			max-width: 650px;
-			font-size: clamp(2rem, 5vw, 4.2rem);
-			line-height: 1;
+			font-size: clamp(2.6rem, 5vw, 4.85rem);
+			line-height: 0.96;
 			letter-spacing: 0;
 		}
 
@@ -94,9 +162,9 @@
 		.metric {
 			border: 1px solid var(--line);
 			border-radius: var(--radius);
-			background: rgba(255,255,255,0.76);
+			background: rgba(255,255,255,0.86);
 			box-shadow: var(--shadow);
-			padding: 14px;
+			padding: 16px;
 		}
 
 		.metric strong {
@@ -111,21 +179,79 @@
 			font-weight: 700;
 		}
 
+		.assurance-panel {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 10px;
+			max-width: 620px;
+		}
+
+		.assurance-item {
+			border-left: 3px solid var(--primary);
+			background: rgba(255,255,255,0.64);
+			padding: 10px 12px;
+		}
+
+		.assurance-item strong,
+		.assurance-item span {
+			display: block;
+		}
+
+		.assurance-item strong {
+			font-size: 0.9rem;
+		}
+
+		.assurance-item span {
+			color: var(--muted);
+			font-size: 0.82rem;
+			margin-top: 3px;
+		}
+
 		.login-card {
+			position: relative;
 			border: 1px solid var(--line);
 			border-radius: var(--radius);
 			background: var(--surface);
-			box-shadow: var(--shadow);
-			padding: 26px;
+			box-shadow: var(--shadow-strong);
+			padding: 28px;
+			overflow: hidden;
+		}
+
+		.login-card::before {
+			content: "";
+			position: absolute;
+			inset: 0 0 auto;
+			height: 4px;
+			background: linear-gradient(90deg, var(--primary), #38BDF8);
+		}
+
+		.login-card-header {
+			display: flex;
+			align-items: flex-start;
+			justify-content: space-between;
+			gap: 16px;
+			margin-bottom: 22px;
+		}
+
+		.login-card-badge {
+			display: inline-flex;
+			align-items: center;
+			border: 1px solid #BBF7D0;
+			border-radius: 999px;
+			background: #F0FDF4;
+			color: #15803D;
+			padding: 5px 9px;
+			font-size: 0.74rem;
+			font-weight: 800;
 		}
 
 		.login-card h2 {
-			margin: 0 0 8px;
+			margin: 0 0 6px;
 			font-size: 1.35rem;
 		}
 
 		.login-card p {
-			margin: 0 0 22px;
+			margin: 0;
 			color: var(--muted);
 			line-height: 1.5;
 		}
@@ -144,12 +270,12 @@
 
 		.field input {
 			width: 100%;
-			min-height: 46px;
-			border: 1px solid #CBD5E1;
+			min-height: 48px;
+			border: 1px solid var(--line-strong);
 			border-radius: var(--radius);
-			background: #FFFFFF;
+			background: #F8FAFC;
 			color: var(--text);
-			padding: 11px 12px;
+			padding: 11px 13px;
 			outline: none;
 			transition: border-color 160ms ease, box-shadow 160ms ease;
 		}
@@ -161,7 +287,7 @@
 
 		.primary-button {
 			width: 100%;
-			min-height: 46px;
+			min-height: 48px;
 			border: 0;
 			border-radius: var(--radius);
 			background: var(--primary);
@@ -169,6 +295,12 @@
 			box-shadow: 0 8px 18px rgba(37,99,235,0.22);
 			cursor: pointer;
 			font-weight: 800;
+			transition: transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease;
+		}
+
+		.primary-button:hover:not(:disabled) {
+			box-shadow: 0 12px 24px rgba(37,99,235,0.26);
+			transform: translateY(-1px);
 		}
 
 		.primary-button:disabled {
@@ -177,10 +309,30 @@
 		}
 
 		.login-footnote {
-			margin-top: 16px;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 8px;
+			margin-top: 18px;
 			color: var(--muted);
 			font-size: 0.85rem;
 			text-align: center;
+		}
+
+		.login-footnote::before {
+			content: "";
+			width: 7px;
+			height: 7px;
+			border-radius: 50%;
+			background: var(--success);
+		}
+
+		.login-footer {
+			width: min(1180px, calc(100% - 32px));
+			margin: 0 auto;
+			padding: 0 0 22px;
+			color: var(--muted);
+			font-size: 0.82rem;
 		}
 
 		.swal2-popup {
@@ -188,46 +340,112 @@
 		}
 
 		@media (max-width: 860px) {
+			.login-topbar {
+				align-items: flex-start;
+				flex-direction: column;
+				padding: 16px 0;
+			}
+
 			.login-shell {
 				grid-template-columns: 1fr;
-				align-content: center;
+				align-content: start;
 				gap: 26px;
+				min-height: auto;
+				padding: 18px 0 30px;
+			}
+
+			.login-card {
+				order: 1;
+			}
+
+			.brand-panel {
+				order: 2;
+			}
+
+			h1 {
+				font-size: clamp(2.2rem, 12vw, 3.4rem);
 			}
 
 			.metrics-strip {
 				grid-template-columns: 1fr;
 			}
+
+			.assurance-panel {
+				grid-template-columns: 1fr;
+			}
+
+			.login-card {
+				padding: 24px;
+			}
+		}
+
+		@media (max-width: 520px) {
+			.login-topbar,
+			.login-shell,
+			.login-footer {
+				width: min(100% - 20px, 480px);
+			}
+
+			.login-card-header {
+				flex-direction: column;
+			}
 		}
 	</style>
 </head>
 <body>
-	<main class="login-shell">
-		<section class="brand-panel" aria-labelledby="loginTitle">
-			<p class="eyebrow">Facturaciones</p>
-			<h1 id="loginTitle">Sistema de Control de gastos </h1>
-			<div class="metrics-strip" aria-label="Resumen de capacidades">
-				<div class="metric"><strong>Auth</strong><span>Usuarios</span></div>
-				<div class="metric"><strong>BCV</strong><span>Conversión automática</span></div>
-				<div class="metric"><strong>XLSX</strong><span>Reporte gerencial</span></div>
+	<div class="login-page">
+		<header class="login-topbar">
+			<div class="brand-mark" aria-label="Sistema de Control de Gastos">
+				<span class="brand-logo"><img src="image.png" alt=""></span>
+				<span>Sistema de Control</span>
 			</div>
-		</section>
+			<div class="topbar-status"><span class="status-dot"></span>Acceso corporativo seguro</div>
+		</header>
 
-		<section class="login-card" aria-label="Inicio de sesión">
-			<h2>Ingresar</h2>
-			<p>Usa el correo y contraseña creados en Supabase Auth para entrar al módulo.</p>
-			<form id="loginForm">
-				<div class="field">
-					<label for="email">Correo</label>
-					<input id="email" name="email" type="email" autocomplete="email" required placeholder="usuario@empresa.com">
+		<main class="login-shell">
+			<section class="brand-panel" aria-labelledby="loginTitle">
+				<p class="eyebrow">Caja chica y operaciones</p>
+				<h1 id="loginTitle">Control operativo de gastos</h1>
+				<p class="brand-copy">Registra comprobantes, convierte montos con tasa BCV y consolida reportes para revisión gerencial desde un flujo privado y ordenado.</p>
+
+				<div class="metrics-strip" aria-label="Resumen de capacidades">
+					<div class="metric"><strong>Auth</strong><span>Usuarios autorizados</span></div>
+					<div class="metric"><strong>BCV</strong><span>Conversión automática</span></div>
+					<div class="metric"><strong>XLSX</strong><span>Reporte gerencial</span></div>
 				</div>
-				<div class="field">
-					<label for="password">Contraseña</label>
-					<input id="password" name="password" type="password" autocomplete="current-password" required placeholder="Tu contraseña">
+
+				<div class="assurance-panel" aria-label="Beneficios del sistema">
+					<div class="assurance-item"><strong>Histórico centralizado</strong><span>Gastos organizados por periodo y responsable.</span></div>
+					<div class="assurance-item"><strong>Soporte documental</strong><span>Comprobantes almacenados para auditoría interna.</span></div>
 				</div>
-				<button class="primary-button" id="loginButton" type="submit">Ingresar al sistema</button>
-			</form>
-		</section>
-	</main>
+			</section>
+
+			<section class="login-card" aria-label="Inicio de sesión">
+				<div class="login-card-header">
+					<div>
+						<h2>Ingresar</h2>
+						<p>Usa tus credenciales asignadas para acceder al módulo.</p>
+					</div>
+					<span class="login-card-badge">Supabase Auth</span>
+				</div>
+
+				<form id="loginForm">
+					<div class="field">
+						<label for="email">Correo corporativo</label>
+						<input id="email" name="email" type="email" autocomplete="email" required placeholder="usuario@empresa.com">
+					</div>
+					<div class="field">
+						<label for="password">Contraseña</label>
+						<input id="password" name="password" type="password" autocomplete="current-password" required placeholder="Ingresa tu contraseña">
+					</div>
+					<button class="primary-button" id="loginButton" type="submit">Ingresar al sistema</button>
+				</form>
+				<div class="login-footnote">Sesión protegida por autenticación de usuarios</div>
+			</section>
+		</main>
+
+		<footer class="login-footer">Control de gastos operativos y caja chica.</footer>
+	</div>
 
 	<script src="supabase-config.js"></script>
 	<script>
