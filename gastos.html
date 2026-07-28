@@ -16,7 +16,7 @@
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
     <style>
         :root {
             --bg: #F8FAFC;
@@ -217,6 +217,10 @@
             background: #DBEAFE;
         }
 
+        .reload-button {
+            min-width: 118px;
+        }
+
         .money, .metric strong { font-family: var(--mono); }
 
         .module-tabs {
@@ -232,7 +236,15 @@
             backdrop-filter: blur(12px);
         }
 
+        .module-tabs:has(.module-tab[hidden]) {
+            grid-template-columns: 1fr;
+        }
+
         .module-tab {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
             min-height: 42px;
             border: 0;
             border-radius: 6px;
@@ -246,6 +258,34 @@
             background: #FFFFFF;
             color: var(--primary);
             box-shadow: 0 2px 10px rgba(15,23,42,0.08);
+        }
+
+        .ui-icon {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            flex: 0 0 auto;
+            stroke: currentColor;
+            stroke-width: 1.8;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            fill: none;
+        }
+
+        .icon-badge {
+            display: grid;
+            place-items: center;
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
+            background: #F8FAFC;
+            color: #334155;
+            border: 1px solid #CBD5E1;
+        }
+
+        .icon-badge .ui-icon {
+            width: 20px;
+            height: 20px;
         }
 
         .layout-grid {
@@ -301,6 +341,12 @@
 
         .panel-header h2 { margin: 0; font-size: 1.02rem; }
         .panel-header span { color: var(--muted); font-size: 0.9rem; }
+
+        .panel-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
 
         .expense-form, .report-body {
             display: grid;
@@ -601,6 +647,10 @@
         }
 
         .ghost-button, .primary-button, .danger-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
             min-height: 40px;
             border-radius: var(--radius);
             padding: 9px 13px;
@@ -636,11 +686,155 @@
 
         .expense-list {
             display: grid;
-            gap: 8px;
+            gap: 10px;
             max-height: 620px;
             overflow-y: auto;
             overflow-x: hidden;
             padding-right: 2px;
+        }
+
+        .expense-card {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 14px;
+            align-items: stretch;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: #FFFFFF;
+            padding: 14px;
+            box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+        }
+
+        .expense-card-main {
+            display: grid;
+            gap: 14px;
+            min-width: 0;
+        }
+
+        .expense-card-head {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 16px;
+            align-items: start;
+            min-width: 0;
+        }
+
+        .expense-title-wrap {
+            min-width: 0;
+        }
+
+        .expense-date {
+            display: inline-flex;
+            width: fit-content;
+            border-radius: 999px;
+            background: #F1F5F9;
+            color: #475569;
+            padding: 4px 8px;
+            font-family: var(--mono);
+            font-size: 0.74rem;
+            font-weight: 800;
+        }
+
+        .expense-card h3 {
+            margin: 8px 0 4px;
+            color: #111827;
+            font-size: 1.02rem;
+            line-height: 1.2;
+            letter-spacing: 0;
+            overflow-wrap: anywhere;
+        }
+
+        .expense-card p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 0.86rem;
+            line-height: 1.35;
+        }
+
+        .expense-amounts {
+            min-width: 154px;
+            border: 1px solid #C7D2FE;
+            border-radius: 10px;
+            background: linear-gradient(180deg, #EFF6FF 0%, #FFFFFF 100%);
+            padding: 10px 12px;
+            text-align: right;
+        }
+
+        .expense-amounts strong,
+        .expense-amounts span {
+            display: block;
+            font-family: var(--mono);
+            white-space: nowrap;
+        }
+
+        .expense-amounts strong {
+            color: #1D4ED8;
+            font-size: 1.06rem;
+            font-weight: 900;
+        }
+
+        .expense-amounts span {
+            margin-top: 4px;
+            color: #334155;
+            font-size: 0.88rem;
+            font-weight: 800;
+        }
+
+        .expense-facts {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 8px;
+        }
+
+        .expense-facts div {
+            min-width: 0;
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+            background: #F8FAFC;
+            padding: 8px 10px;
+        }
+
+        .expense-facts span {
+            display: block;
+            color: #64748B;
+            font-size: 0.68rem;
+            font-weight: 900;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .expense-facts strong {
+            display: block;
+            margin-top: 4px;
+            color: #1E293B;
+            font-size: 0.86rem;
+            line-height: 1.25;
+            overflow-wrap: anywhere;
+        }
+
+        .support-ok { color: #047857 !important; }
+        .support-missing { color: #B45309 !important; }
+
+        .expense-card-actions {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 8px;
+            align-content: center;
+            min-width: 128px;
+        }
+
+        .receipt-placeholder {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 34px;
+            border: 1px solid #E2E8F0;
+            border-radius: 6px;
+            background: #F8FAFC;
+            color: #64748B;
+            padding: 6px 10px;
+            font-size: 0.82rem;
+            font-weight: 800;
         }
 
         .expense-header {
@@ -712,6 +906,7 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
+            gap: 6px;
             min-height: 34px;
             border: 1px solid #BFDBFE;
             border-radius: 6px;
@@ -721,6 +916,54 @@
             font-size: 0.82rem;
             font-weight: 800;
             text-decoration: none;
+        }
+
+        .app-update-notice {
+            position: fixed;
+            left: 50%;
+            bottom: calc(18px + env(safe-area-inset-bottom));
+            z-index: 1200;
+            display: none;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 14px;
+            align-items: center;
+            width: min(520px, calc(100% - 24px));
+            border: 1px solid #C7D2FE;
+            border-radius: 14px;
+            background: #FFFFFF;
+            color: var(--text);
+            box-shadow: 0 22px 52px rgba(15,23,42,0.24);
+            padding: 12px 12px 12px 14px;
+            transform: translateX(-50%);
+        }
+
+        .app-update-notice.is-visible {
+            display: grid;
+        }
+
+        .app-update-notice strong,
+        .app-update-notice span {
+            display: block;
+        }
+
+        .app-update-notice strong {
+            font-size: 0.92rem;
+        }
+
+        .app-update-notice span {
+            color: var(--muted);
+            font-size: 0.8rem;
+        }
+
+        .app-update-notice button {
+            min-height: 38px;
+            border: 0;
+            border-radius: 10px;
+            background: var(--primary);
+            color: #FFFFFF;
+            font-weight: 800;
+            padding: 8px 12px;
+            cursor: pointer;
         }
 
         .expense-actions {
@@ -895,21 +1138,9 @@
             .layout-grid { grid-template-columns: 1fr; }
             .expense-list { max-height: none; }
             .expense-header { display: none; }
-            .expense-row {
-                grid-template-columns: repeat(4, minmax(0, 1fr));
-                gap: 10px;
-            }
-
-            .expense-row small { display: block; }
-            .expense-row .amount-cell { display: block; }
-
-            .expense-tools {
-                display: grid;
-                grid-column: 1 / -1;
-                grid-template-columns: minmax(140px, 0.8fr) minmax(220px, 1.2fr);
-                gap: 10px;
-                align-items: end;
-            }
+            .expense-card { grid-template-columns: 1fr; }
+            .expense-card-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            .expense-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
             .form-section--meta,
             .form-section--payment,
@@ -923,15 +1154,131 @@
         }
 
         @media (max-width: 820px) {
+            body {
+                padding-bottom: calc(78px + env(safe-area-inset-bottom));
+            }
+
             .app-shell {
                 width: min(100% - 16px, 760px);
                 padding-top: 18px;
+                padding-bottom: 24px;
             }
 
-            .topbar { flex-direction: column; }
-            .app-brand { align-items: flex-start; }
-            .top-actions, .user-chip, .profile-button, .logout-button { width: 100%; }
-            .user-chip { justify-content: space-between; }
+            .topbar {
+                display: grid;
+                grid-template-columns: 1fr auto;
+                align-items: center;
+                gap: 12px;
+                padding: 12px;
+                margin-bottom: 12px;
+            }
+
+            .app-brand {
+                align-items: center;
+                gap: 10px;
+            }
+
+            .app-logo {
+                width: 38px;
+                height: 38px;
+                flex-basis: 38px;
+            }
+
+            .eyebrow {
+                margin-bottom: 2px;
+                font-size: 0.68rem;
+                letter-spacing: 0.06em;
+            }
+
+            h1 {
+                max-width: 210px;
+                font-size: 1.18rem;
+                line-height: 1.05;
+            }
+
+            .top-actions {
+                display: grid;
+                grid-template-columns: auto auto auto;
+                justify-content: end;
+                gap: 8px;
+            }
+
+            .user-chip {
+                grid-column: 1 / -1;
+                justify-self: end;
+                width: min(210px, 46vw);
+                min-height: 34px;
+                gap: 7px;
+                padding: 7px 9px;
+            }
+
+            .user-chip span {
+                display: none;
+            }
+
+            .user-chip strong {
+                max-width: 150px;
+                font-size: 0.78rem;
+            }
+
+            .profile-button,
+            .reload-button,
+            .logout-button {
+                width: 42px;
+                min-width: 42px;
+                height: 42px;
+                padding: 0;
+                border-radius: 10px;
+            }
+
+            .profile-button .button-label,
+            .reload-button .button-label,
+            .logout-button .button-label {
+                position: absolute;
+                width: 1px;
+                height: 1px;
+                margin: -1px;
+                overflow: hidden;
+                clip: rect(0, 0, 0, 0);
+                white-space: nowrap;
+            }
+
+            .module-tabs {
+                position: fixed;
+                left: 10px;
+                right: 10px;
+                bottom: calc(10px + env(safe-area-inset-bottom));
+                top: auto;
+                z-index: 40;
+                margin: 0;
+                border-radius: 16px;
+                background: rgba(255,255,255,0.94);
+                box-shadow: 0 18px 40px rgba(15,23,42,0.22);
+                backdrop-filter: blur(18px);
+            }
+
+            .app-update-notice {
+                bottom: calc(86px + env(safe-area-inset-bottom));
+                grid-template-columns: 1fr;
+            }
+
+            .app-update-notice button {
+                width: 100%;
+            }
+
+            .module-tab {
+                min-height: 52px;
+                border-radius: 12px;
+                flex-direction: column;
+                gap: 4px;
+                font-size: 0.76rem;
+            }
+
+            .module-tab .ui-icon {
+                width: 20px;
+                height: 20px;
+            }
+
             .expense-form { grid-template-columns: 1fr; }
             .form-row, .money-grid, .responsables, .filters-grid, .summary-grid { grid-template-columns: 1fr; }
             .form-section--meta,
@@ -953,19 +1300,48 @@
             .edit-expense-button,
             .delete-expense-button { min-height: 32px; }
             .profile-fields-grid { grid-template-columns: 1fr; }
+            .expense-card-head { grid-template-columns: 1fr; }
+            .expense-amounts { text-align: left; width: 100%; }
         }
 
         @media (max-width: 520px) {
             .app-shell {
                 width: min(100% - 8px, 520px);
-                padding: 12px 0 28px;
+                padding: 8px 0 24px;
             }
 
-            h1 { font-size: 1.75rem; }
-            .module-tabs { position: sticky; top: 6px; z-index: 5; }
+            .topbar {
+                grid-template-columns: 1fr;
+            }
+
+            .top-actions {
+                grid-template-columns: 1fr auto auto auto;
+                width: 100%;
+            }
+
+            .user-chip {
+                grid-column: auto;
+                justify-self: stretch;
+                width: auto;
+            }
+
+            .user-chip strong {
+                max-width: none;
+            }
+
+            h1 { font-size: 1.35rem; max-width: none; }
             .panel-header { align-items: flex-start; flex-direction: column; padding: 14px; }
             .expense-form, .report-body { padding: 14px; }
             .expense-list { gap: 10px; }
+            .expense-card {
+                padding: 12px;
+                gap: 12px;
+            }
+            .expense-card h3 { font-size: 0.98rem; }
+            .expense-facts { grid-template-columns: 1fr; }
+            .expense-card-actions { grid-template-columns: 1fr 1fr; }
+            .expense-card-actions .receipt-link,
+            .expense-card-actions .receipt-placeholder { grid-column: 1 / -1; }
             .expense-row {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
                 gap: 8px 10px;
@@ -1023,21 +1399,22 @@
                 </div>
             </div>
             <div class="top-actions">
-                <div class="user-chip"><span>Usuario</span><strong id="userEmail">Validando...</strong></div>
-                <button class="ghost-button profile-button" id="profileButton" type="button">Perfil</button>
-                <button class="danger-button logout-button" id="logoutButton" type="button">Cerrar sesión</button>
+                <div class="user-chip"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="8" r="4"/></svg><span>Usuario</span><strong id="userEmail">Validando...</strong></div>
+                <button class="ghost-button reload-button" id="reloadAppButton" type="button" title="Recargar plataforma"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v6h-6"/></svg><span class="button-label">Recargar</span></button>
+                <button class="ghost-button profile-button" id="profileButton" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="8" r="4"/></svg><span class="button-label">Perfil</span></button>
+                <button class="danger-button logout-button" id="logoutButton" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M21 3v18"/></svg><span class="button-label">Cerrar sesión</span></button>
             </div>
         </header>
 
         <nav class="module-tabs" aria-label="Secciones del módulo">
-            <button class="module-tab is-active" type="button" data-tab-target="nuevo-gasto">Nuevo gasto</button>
-            <button class="module-tab" type="button" data-tab-target="historico" hidden>Histórico</button>
+            <button class="module-tab is-active" type="button" data-tab-target="nuevo-gasto"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg><span>Nuevo gasto</span></button>
+            <button class="module-tab" type="button" data-tab-target="historico" hidden><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-7"/></svg><span>Histórico</span></button>
         </nav>
 
         <section class="layout-grid">
             <article class="panel module-panel is-active" id="nuevo-gasto" data-panel="nuevo-gasto">
                 <div class="panel-header">
-                    <h2>Nuevo Gasto</h2>
+                    <div class="panel-title"><span class="icon-badge"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3.75h7.5L19 8.25v12H7z"/><path d="M14.5 3.75v4.5H19"/><path d="M10 13h6"/><path d="M13 10v6"/></svg></span><h2>Nuevo Gasto</h2></div>
                     <span>Registro con comprobante</span>
                 </div>
 
@@ -1053,6 +1430,12 @@
                             <div class="category-tools">
                                 <button class="danger-button is-hidden" id="deleteCategoryButton" type="button">Eliminar categoría guardada</button>
                             </div>
+                        </div>
+                        <div class="field is-hidden" id="vehiculoUnidadField">
+                            <label for="vehiculoUnidad">Vehículo / placa</label>
+                            <select id="vehiculoUnidad" name="vehiculo_unidad">
+                                <option value="">Selecciona el vehículo</option>
+                            </select>
                         </div>
                         <div class="field is-hidden" id="vehiculoDetalleField">
                             <label for="vehiculoDetalle">Detalle vehículo</label>
@@ -1071,6 +1454,10 @@
                         <div class="field is-hidden" id="vehiculoKilometrajeField">
                             <label for="kilometraje">Kilometraje actual</label>
                             <input id="kilometraje" name="kilometraje" type="number" min="0" step="1" placeholder="Ej. 45200">
+                        </div>
+                        <div class="field is-hidden" id="litrosGasolinaField">
+                            <label for="litrosGasolina">Litros cargados</label>
+                            <input id="litrosGasolina" name="litros_gasolina" type="number" min="0" step="0.01" placeholder="Ej. 38.50">
                         </div>
                         <div class="field is-hidden" id="comidaDetalleField">
                             <label for="comidaDetalle">Detalle de comida</label>
@@ -1159,15 +1546,15 @@
                     </div>
 
                     <div class="form-actions">
-                        <button class="ghost-button" type="reset">Limpiar</button>
-                        <button class="primary-button" id="submitButton" type="submit">Guardar gasto</button>
+                        <button class="ghost-button" type="reset"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h9"/><path d="M16.5 3.5l4 4L9 19H5v-4z"/><path d="M13.5 6.5l4 4"/></svg>Limpiar</button>
+                        <button class="primary-button" id="submitButton" type="submit"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>Guardar gasto</button>
                     </div>
                 </form>
             </article>
 
             <article class="panel module-panel" id="historico" data-panel="historico" hidden>
                 <div class="panel-header">
-                    <h2>Histórico y Reporte</h2>
+                    <div class="panel-title"><span class="icon-badge"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 15v-4"/><path d="M12 15V8"/><path d="M16 15v-6"/></svg></span><h2>Histórico y Reporte</h2></div>
                     <span id="historyCount">0 registros</span>
                 </div>
                 <div class="report-body">
@@ -1198,8 +1585,8 @@
                     </div>
 
                     <div class="button-row">
-                        <button class="ghost-button" id="refreshButton" type="button">Refrescar</button>
-                        <button class="primary-button" id="exportButton" type="button" hidden>Exportar Excel</button>
+                        <button class="ghost-button" id="refreshButton" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v6h-6"/></svg>Refrescar</button>
+                        <button class="primary-button" id="exportButton" type="button" hidden><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M8 13h8"/><path d="M8 17h8"/></svg>Exportar Excel</button>
                     </div>
 
                     <div class="expense-list" id="historyList">
@@ -1210,8 +1597,8 @@
         </section>
     </main>
 
-    <script src="supabase-config.js?v=32"></script>
-    <script src="app-install.js?v=32"></script>
-    <script src="gastos.js?v=32"></script>
+    <script src="supabase-config.js?v=46"></script>
+    <script src="app-install.js?v=46"></script>
+    <script src="gastos.js?v=46"></script>
 </body>
 </html>

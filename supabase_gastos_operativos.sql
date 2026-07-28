@@ -51,7 +51,10 @@ create table if not exists public.gastos_operativos (
     monto_usd numeric(10,2) not null default 0,
     tasa_bcv numeric(10,4) not null default 0,
     monto_ves numeric(10,2) not null default 0,
+    vehiculo_nombre text,
+    vehiculo_placa text,
     kilometraje integer,
+    litros_gasolina numeric(10,2),
     detalle_actividad text,
     descripcion text,
     responsable text not null,
@@ -70,7 +73,10 @@ alter table public.gastos_operativos
     add column if not exists tipo_tasa text not null default 'DIRECTO';
 
 alter table public.gastos_operativos
+    add column if not exists vehiculo_nombre text,
+    add column if not exists vehiculo_placa text,
     add column if not exists kilometraje integer,
+    add column if not exists litros_gasolina numeric(10,2),
     add column if not exists detalle_actividad text;
 
 alter table public.gastos_operativos

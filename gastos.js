@@ -11,6 +11,15 @@ const PAYMENT_METHODS = {
 };
 const BASE_CATEGORIES = ["COMIDA", "HERRAMIENTAS", "MATERIALES", "EQUIPOS", "INSUMOS", "VEHICULOS"];
 const VEHICLE_KILOMETER_DETAILS = ["GASOLINA", "CAMBIO DE ACEITE", "SERVICIOS"];
+const HISTORY_SELECT_FULL = "id,user_email,fecha,categoria_nombre,numero_factura,moneda,forma_pago,tipo_tasa,monto_usd,tasa_bcv,monto_ves,vehiculo_nombre,vehiculo_placa,kilometraje,litros_gasolina,detalle_actividad,descripcion,responsable,comprobante_url,created_at";
+const HISTORY_SELECT_LEGACY = "id,user_email,fecha,categoria_nombre,numero_factura,moneda,forma_pago,tipo_tasa,monto_usd,tasa_bcv,monto_ves,kilometraje,detalle_actividad,descripcion,responsable,comprobante_url,created_at";
+const VEHICLES = [
+    { name: "Gran Vitara", plate: "AFN06W" },
+    { name: "Kaicene", plate: "A24AY7C" },
+    { name: "Hunter", plate: "A87BD3J" },
+    { name: "Silverado", plate: "A95A01A" },
+    { name: "Cruze", plate: "AD286ZG" }
+];
 const HIDDEN_SEEDED_CATEGORIES = [
     "Gasolina",
     "Cambio de Aceite / Filtros",
@@ -28,6 +37,7 @@ const state = {
     selectedFile: null,
     tempCategory: null,
     syncingMoney: false,
+    lastMoneyInput: "USD",
     switchingTab: false,
     currentUser: null,
     currentUserName: "",
@@ -41,11 +51,15 @@ const elements = {
     fecha: document.querySelector("#fecha"),
     categoria: document.querySelector("#categoria"),
     deleteCategoryButton: document.querySelector("#deleteCategoryButton"),
+    vehiculoUnidadField: document.querySelector("#vehiculoUnidadField"),
+    vehiculoUnidad: document.querySelector("#vehiculoUnidad"),
     vehiculoDetalleField: document.querySelector("#vehiculoDetalleField"),
     vehiculoDetalle: document.querySelector("#vehiculoDetalle"),
     contextDetailSection: document.querySelector("#contextDetailSection"),
     vehiculoKilometrajeField: document.querySelector("#vehiculoKilometrajeField"),
     kilometraje: document.querySelector("#kilometraje"),
+    litrosGasolinaField: document.querySelector("#litrosGasolinaField"),
+    litrosGasolina: document.querySelector("#litrosGasolina"),
     comidaDetalleField: document.querySelector("#comidaDetalleField"),
     comidaDetalle: document.querySelector("#comidaDetalle"),
     montoUsd: document.querySelector("#montoUsd"),
@@ -71,6 +85,7 @@ const elements = {
     historyCount: document.querySelector("#historyCount"),
     submitButton: document.querySelector("#submitButton"),
     logoutButton: document.querySelector("#logoutButton"),
+    reloadAppButton: document.querySelector("#reloadAppButton"),
     profileButton: document.querySelector("#profileButton"),
     userEmail: document.querySelector("#userEmail"),
     periodFilter: document.querySelector("#periodFilter"),
@@ -260,7 +275,7 @@ function syncAdminAccess() {
 
 function updateUserChip() {
     elements.userEmail.textContent = state.currentUserName || state.currentUser?.email || "Usuario activo";
-    elements.profileButton.textContent = "Perfil";
+    elements.profileButton.title = "Perfil";
 }
 
 async function init() {
@@ -302,9 +317,18 @@ function bindEvents() {
         button.addEventListener("click", () => activateTab(button.dataset.tabTarget));
     });
     elements.profileButton.addEventListener("click", () => openProfileModal());
+    elements.reloadAppButton.addEventListener("click", reloadPlatform);
     elements.logoutButton.addEventListener("click", logout);
     elements.categoria.addEventListener("change", handleCategoryChange);
     elements.deleteCategoryButton.addEventListener("click", deleteSelectedCategory);
+    elements.vehiculoUnidad.addEventListener("change", () => {
+        if (elements.categoria.value) {
+            elements.categoria.dataset.previous = elements.categoria.value;
+        }
+        elements.vehiculoDetalle.value = "";
+        updateVehicleDetailVisibility();
+        updateContextDetailVisibility();
+    });
     elements.vehiculoDetalle.addEventListener("change", () => {
         if (elements.categoria.value) {
             elements.categoria.dataset.previous = elements.categoria.value;
@@ -412,6 +436,13 @@ async function logout() {
     showPageLoader();
     await supabaseClient.auth.signOut();
     window.location.href = "index.html";
+}
+
+function reloadPlatform() {
+    showPageLoader();
+    const url = new URL(window.location.href);
+    url.searchParams.set("refresh", String(Date.now()));
+    window.location.replace(url.toString());
 }
 
 function setupBcvAutoRefresh() {
@@ -616,9 +647,9 @@ function updateMoneyInputLock() {
     elements.moneyGrid.classList.toggle("is-single", usdActive);
     elements.montoVesWrap.classList.toggle("is-hidden", usdActive);
     elements.moneySectionLabel.textContent = usdActive ? "Monto pagado" : "Calculadora divisa / VES";
-    elements.montoUsd.readOnly = !usdActive;
+    elements.montoUsd.readOnly = false;
     elements.montoVes.readOnly = usdActive;
-    elements.montoUsdWrap.classList.toggle("is-calculated", !usdActive);
+    elements.montoUsdWrap.classList.toggle("is-calculated", false);
     elements.montoVesWrap.classList.toggle("is-calculated", usdActive);
 
     if (usdActive) {
@@ -673,6 +704,8 @@ function syncCurrentMoney() {
 
     if (moneda === "USD" && elements.montoUsd.value) {
         syncMoney("USD");
+    } else if (moneda === "VES" && state.lastMoneyInput === "USD" && elements.montoUsd.value) {
+        syncMoney("USD");
     } else if (moneda === "VES" && elements.montoVes.value) {
         syncMoney("VES");
     } else if (elements.montoUsd.value) {
@@ -724,9 +757,23 @@ function renderCategorias(selectedId = "") {
 
     elements.categoria.innerHTML = options.join("");
     elements.categoria.value = selectedId;
+    renderVehicleOptions();
     updateVehicleDetailVisibility();
     updateContextDetailVisibility();
     updateCategoryActions();
+}
+
+function renderVehicleOptions() {
+    const currentValue = elements.vehiculoUnidad.value;
+    elements.vehiculoUnidad.innerHTML = [
+        '<option value="">Selecciona el vehículo</option>',
+        ...VEHICLES.map((vehicle) => `<option value="${escapeAttribute(vehicle.plate)}">${escapeHtml(vehicle.name)} - ${escapeHtml(vehicle.plate)}</option>`)
+    ].join("");
+    elements.vehiculoUnidad.value = VEHICLES.some((vehicle) => vehicle.plate === currentValue) ? currentValue : "";
+}
+
+function getSelectedVehicle() {
+    return VEHICLES.find((vehicle) => vehicle.plate === elements.vehiculoUnidad.value) || null;
 }
 
 async function handleCategoryChange() {
@@ -786,7 +833,9 @@ function getSelectedCategory() {
     if (value.startsWith(STATIC_CATEGORY_PREFIX)) {
         const nombre = value.replace(STATIC_CATEGORY_PREFIX, "");
         if (nombre === "VEHICULOS" && elements.vehiculoDetalle.value) {
-            return { id: null, nombre: `${nombre} - ${elements.vehiculoDetalle.value}` };
+            const vehicle = getSelectedVehicle();
+            const vehicleLabel = vehicle ? `${vehicle.name} ${vehicle.plate}` : "SIN VEHICULO";
+            return { id: null, nombre: `${nombre} - ${vehicleLabel} - ${elements.vehiculoDetalle.value}` };
         }
 
         return { id: null, nombre };
@@ -822,9 +871,14 @@ function normalizeCategoryName(nombre = "") {
 
 function updateVehicleDetailVisibility() {
     const isVehicle = elements.categoria.value === `${STATIC_CATEGORY_PREFIX}VEHICULOS`;
-    elements.vehiculoDetalleField.classList.toggle("is-hidden", !isVehicle);
+    const hasVehicle = Boolean(elements.vehiculoUnidad.value);
+    elements.vehiculoUnidadField.classList.toggle("is-hidden", !isVehicle);
+    elements.vehiculoDetalleField.classList.toggle("is-hidden", !isVehicle || !hasVehicle);
 
     if (!isVehicle) {
+        elements.vehiculoUnidad.value = "";
+        elements.vehiculoDetalle.value = "";
+    } else if (!hasVehicle) {
         elements.vehiculoDetalle.value = "";
     }
 
@@ -833,16 +887,22 @@ function updateVehicleDetailVisibility() {
 
 function updateContextDetailVisibility() {
     const needsKilometraje = shouldAskKilometraje();
+    const needsLitrosGasolina = shouldAskLitrosGasolina();
     const needsComidaDetalle = shouldAskComidaDetalle();
 
-    elements.contextDetailSection.classList.toggle("is-hidden", !needsKilometraje && !needsComidaDetalle);
+    elements.contextDetailSection.classList.toggle("is-hidden", !needsKilometraje && !needsLitrosGasolina && !needsComidaDetalle);
     elements.vehiculoKilometrajeField.classList.toggle("is-hidden", !needsKilometraje);
+    elements.litrosGasolinaField.classList.toggle("is-hidden", !needsLitrosGasolina);
     elements.comidaDetalleField.classList.toggle("is-hidden", !needsComidaDetalle);
     elements.kilometraje.required = needsKilometraje;
     elements.comidaDetalle.required = needsComidaDetalle;
 
     if (!needsKilometraje) {
         elements.kilometraje.value = "";
+    }
+
+    if (!needsLitrosGasolina) {
+        elements.litrosGasolina.value = "";
     }
 
     if (!needsComidaDetalle) {
@@ -852,6 +912,10 @@ function updateContextDetailVisibility() {
 
 function shouldAskKilometraje() {
     return elements.categoria.value === `${STATIC_CATEGORY_PREFIX}VEHICULOS` && VEHICLE_KILOMETER_DETAILS.includes(elements.vehiculoDetalle.value);
+}
+
+function shouldAskLitrosGasolina() {
+    return elements.categoria.value === `${STATIC_CATEGORY_PREFIX}VEHICULOS` && elements.vehiculoDetalle.value === "GASOLINA";
 }
 
 function shouldAskComidaDetalle() {
@@ -918,13 +982,14 @@ function syncMoney(source) {
     if (state.syncingMoney) return;
 
     state.syncingMoney = true;
+    state.lastMoneyInput = source;
 
-    if (source === "USD") {
-        elements.monedaUsd.checked = true;
-        renderPaymentMethods("USD");
-    } else {
+    if (source === "VES") {
         elements.monedaVes.checked = true;
         renderPaymentMethods("VES");
+    } else if (getSelectedCurrency() === "USD") {
+        elements.monedaUsd.checked = true;
+        renderPaymentMethods("USD");
     }
 
     updateMoneyInputLock();
@@ -1005,6 +1070,14 @@ async function saveExpense(event) {
         return;
     }
 
+    const selectedVehicle = getSelectedVehicle();
+
+    if (elements.categoria.value === `${STATIC_CATEGORY_PREFIX}VEHICULOS` && !selectedVehicle) {
+        await Swal.fire({ icon: "warning", title: "Vehículo requerido", text: "Selecciona el vehículo o placa asociado al gasto." });
+        elements.vehiculoUnidad.focus();
+        return;
+    }
+
     if (elements.categoria.value === `${STATIC_CATEGORY_PREFIX}VEHICULOS` && !elements.vehiculoDetalle.value) {
         await Swal.fire({ icon: "warning", title: "Detalle de vehículo requerido", text: "Selecciona si fue gasolina, pieza mecánica, cambio de aceite, servicios o mano de obra." });
         elements.vehiculoDetalle.focus();
@@ -1057,7 +1130,10 @@ async function saveExpense(event) {
         monto_usd: montoDivisa,
         tasa_bcv: usesRate ? Number(activeRate.toFixed(4)) : 0,
         monto_ves: montoVes,
+        vehiculo_nombre: selectedVehicle?.name || null,
+        vehiculo_placa: selectedVehicle?.plate || null,
         kilometraje: shouldAskKilometraje() ? Math.round(parseCurrency(elements.kilometraje.value)) : null,
+        litros_gasolina: shouldAskLitrosGasolina() && parseCurrency(elements.litrosGasolina.value) > 0 ? roundMoney(parseCurrency(elements.litrosGasolina.value)) : null,
         detalle_actividad: shouldAskComidaDetalle() ? elements.comidaDetalle.value : null,
         descripcion: cleanText(elements.descripcion.value),
         responsable,
@@ -1071,11 +1147,7 @@ async function saveExpense(event) {
             payload.comprobante_url = await uploadReceipt(state.selectedFile);
         }
 
-        const { data: insertedExpense, error } = await supabaseClient
-            .from("gastos_operativos")
-            .insert(payload)
-            .select("id")
-            .single();
+        const { data: insertedExpense, error } = await insertExpenseWithSchemaFallback(payload);
         if (error) throw error;
 
         await handlePostSaveCategoryPersistence(insertedExpense?.id);
@@ -1185,14 +1257,29 @@ async function loadHistorico() {
 
     let query = supabaseClient
         .from("gastos_operativos")
-        .select("id,user_email,fecha,categoria_nombre,numero_factura,moneda,forma_pago,tipo_tasa,monto_usd,tasa_bcv,monto_ves,kilometraje,detalle_actividad,descripcion,responsable,comprobante_url,created_at")
+        .select(HISTORY_SELECT_FULL)
         .order("fecha", { ascending: false })
         .order("created_at", { ascending: false });
 
     if (from) query = query.gte("fecha", from);
     if (to) query = query.lte("fecha", to);
 
-    const { data, error } = await query.limit(500);
+    let { data, error } = await query.limit(500);
+
+    if (isSchemaCacheColumnError(error)) {
+        let legacyQuery = supabaseClient
+            .from("gastos_operativos")
+            .select(HISTORY_SELECT_LEGACY)
+            .order("fecha", { ascending: false })
+            .order("created_at", { ascending: false });
+
+        if (from) legacyQuery = legacyQuery.gte("fecha", from);
+        if (to) legacyQuery = legacyQuery.lte("fecha", to);
+
+        const legacyResult = await legacyQuery.limit(500);
+        data = legacyResult.data;
+        error = legacyResult.error;
+    }
 
     if (error) {
         console.error(error);
@@ -1203,6 +1290,35 @@ async function loadHistorico() {
 
     state.historyRows = data || [];
     renderHistorico(state.historyRows);
+}
+
+async function insertExpenseWithSchemaFallback(payload) {
+    const result = await supabaseClient
+        .from("gastos_operativos")
+        .insert(payload)
+        .select("id")
+        .single();
+
+    if (!isSchemaCacheColumnError(result.error)) {
+        return result;
+    }
+
+    const legacyPayload = { ...payload };
+    delete legacyPayload.vehiculo_nombre;
+    delete legacyPayload.vehiculo_placa;
+    delete legacyPayload.litros_gasolina;
+
+    return supabaseClient
+        .from("gastos_operativos")
+        .insert(legacyPayload)
+        .select("id")
+        .single();
+}
+
+function isSchemaCacheColumnError(error) {
+    if (!error) return false;
+    const text = `${error.code || ""} ${error.message || ""} ${error.details || ""}`.toLowerCase();
+    return text.includes("pgrst204") || text.includes("schema cache") || text.includes("litros_gasolina") || text.includes("vehiculo_nombre") || text.includes("vehiculo_placa");
 }
 
 function renderHistorico(rows) {
@@ -1217,44 +1333,56 @@ function renderHistorico(rows) {
 
     elements.historyList.classList.add("has-records");
 
-    const header = `
-        <div class="expense-header" aria-hidden="true">
-            <span>Fecha</span>
-            <span>Categoría</span>
-            <span>Pago/Tasa</span>
-            <span>Factura</span>
-            <span>Detalle</span>
-            <span>Monto divisa</span>
-            <span>Monto VES</span>
-            <span>Resp.</span>
-            <span>Soporte</span>
-            <span>Acción</span>
-        </div>
-    `;
+    const items = rows.map((row) => {
+        const title = getExpenseTitle(row);
+        const subtitle = [formatDate(row.fecha), row.responsable || "Sin responsable", row.forma_pago || "Sin pago"].filter(Boolean).join(" · ");
+        const operationalDetail = getOperationalDetail(row);
+        const hasReceipt = Boolean(row.comprobante_url);
 
-    const items = rows.map((row) => `
-        <article class="expense-row">
-            <div><small>Fecha</small><strong>${formatDate(row.fecha)}</strong></div>
-            <div class="wide category-cell"><small>Categoría</small><strong title="${escapeAttribute(row.categoria_nombre || "")}">${escapeHtml(row.categoria_nombre || "-")}</strong></div>
-            <div><small>Pago/Tasa</small><strong>${escapeHtml(row.forma_pago || "-")}</strong><span>${escapeHtml(getRateDisplay(row))}</span></div>
-            <div><small>Factura</small><span>${escapeHtml(row.numero_factura || "-")}</span></div>
-            <div><small>Detalle</small><span>${escapeHtml(getOperationalDetail(row))}</span></div>
-            <div class="amount-cell"><small>Monto</small><span class="money">${getMoneyUnit(row.tipo_tasa)} ${formatNumber(row.monto_usd, 2)}</span><span class="money">Bs. ${formatNumber(row.monto_ves, 2)}</span></div>
-            <div><small>Resp.</small><span>${escapeHtml(row.responsable || "-")}</span></div>
-            <div class="expense-tools">
-                <div><small>Soporte</small>${renderReceiptLink(row.comprobante_url)}</div>
-                <div>
-                    <small>Acción</small>
-                    <div class="expense-actions">
-                        <button class="edit-expense-button" type="button" data-expense-id="${escapeAttribute(row.id)}">Editar</button>
-                        <button class="delete-expense-button" type="button" data-expense-id="${escapeAttribute(row.id)}">Eliminar</button>
+        return `
+            <article class="expense-card">
+                <div class="expense-card-main">
+                    <div class="expense-card-head">
+                        <div class="expense-title-wrap">
+                            <span class="expense-date">${formatDate(row.fecha)}</span>
+                            <h3 title="${escapeAttribute(row.categoria_nombre || "")}">${escapeHtml(title)}</h3>
+                            <p>${escapeHtml(subtitle)}</p>
+                        </div>
+                        <div class="expense-amounts" aria-label="Monto del gasto">
+                            <strong>${getMoneyUnit(row.tipo_tasa)} ${formatNumber(row.monto_usd, 2)}</strong>
+                            <span>Bs. ${formatNumber(row.monto_ves, 2)}</span>
+                        </div>
+                    </div>
+
+                    <div class="expense-facts">
+                        <div><span>Factura</span><strong>${escapeHtml(row.numero_factura || "Sin factura")}</strong></div>
+                        <div><span>Tasa</span><strong>${escapeHtml(getRateDisplay(row))}</strong></div>
+                        <div><span>Detalle operativo</span><strong>${escapeHtml(operationalDetail)}</strong></div>
+                        <div><span>Soporte</span><strong class="${hasReceipt ? "support-ok" : "support-missing"}">${hasReceipt ? "Disponible" : "Sin soporte"}</strong></div>
                     </div>
                 </div>
-            </div>
-        </article>
-    `).join("");
 
-    elements.historyList.innerHTML = header + items;
+                <div class="expense-card-actions">
+                    ${hasReceipt ? renderReceiptLink(row.comprobante_url) : '<span class="receipt-placeholder">Sin comprobante</span>'}
+                    <button class="edit-expense-button" type="button" data-expense-id="${escapeAttribute(row.id)}"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>Editar</button>
+                    <button class="delete-expense-button" type="button" data-expense-id="${escapeAttribute(row.id)}"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M6 6l1 15h10l1-15"/></svg>Eliminar</button>
+                </div>
+            </article>
+        `;
+    }).join("");
+
+    elements.historyList.innerHTML = items;
+}
+
+function getExpenseTitle(row) {
+    const category = row.categoria_nombre || "Gasto operativo";
+    if (row.vehiculo_nombre || row.vehiculo_placa) {
+        const vehicle = [row.vehiculo_nombre, row.vehiculo_placa].filter(Boolean).join(" ");
+        const detail = category.split(" - ").pop();
+        return `${vehicle}${detail && detail !== category ? ` · ${detail}` : ""}`;
+    }
+
+    return category;
 }
 
 async function handleHistoryClick(event) {
@@ -1336,6 +1464,7 @@ async function editExpense(row) {
                 </label>
                 <label>Tasa usada<input id="editTasaCambio" class="swal2-input" type="number" min="0" step="0.0001" value="${escapeAttribute(row.tasa_bcv || 0)}"></label>
                 <label>Kilometraje<input id="editKilometraje" class="swal2-input" type="number" min="0" step="1" value="${escapeAttribute(row.kilometraje || "")}" placeholder="Solo si aplica"></label>
+                <label>Litros gasolina<input id="editLitrosGasolina" class="swal2-input" type="number" min="0" step="0.01" value="${escapeAttribute(row.litros_gasolina || "")}" placeholder="Solo si aplica"></label>
                 <label>Detalle comida
                     <select id="editDetalleActividad" class="swal2-select">
                         ${["", "Jornada Laboral UVS", "Evento"].map((detail) => `<option value="${escapeAttribute(detail)}" ${(row.detalle_actividad || "") === detail ? "selected" : ""}>${detail ? escapeHtml(detail) : "Sin detalle"}</option>`).join("")}
@@ -1384,6 +1513,7 @@ async function editExpense(row) {
                 monto_usd: montoUsd,
                 monto_ves: montoVes,
                 kilometraje: parseCurrency(document.querySelector("#editKilometraje").value) > 0 ? Math.round(parseCurrency(document.querySelector("#editKilometraje").value)) : null,
+                litros_gasolina: parseCurrency(document.querySelector("#editLitrosGasolina").value) > 0 ? roundMoney(parseCurrency(document.querySelector("#editLitrosGasolina").value)) : null,
                 detalle_actividad: cleanText(document.querySelector("#editDetalleActividad").value),
                 responsable: document.querySelector("#editResponsable").value,
                 descripcion: cleanText(document.querySelector("#editDescripcion").value)
@@ -1394,11 +1524,7 @@ async function editExpense(row) {
     if (!result.isConfirmed) return;
 
     try {
-        const { data, error } = await supabaseClient
-            .from("gastos_operativos")
-            .update(result.value)
-            .eq("id", row.id)
-            .select("id");
+        const { data, error } = await updateExpenseWithSchemaFallback(row.id, result.value);
 
         if (error) throw error;
 
@@ -1412,6 +1538,27 @@ async function editExpense(row) {
         console.error(error);
         await Swal.fire({ icon: "error", title: "No se pudo editar", text: error.message });
     }
+}
+
+async function updateExpenseWithSchemaFallback(id, payload) {
+    const result = await supabaseClient
+        .from("gastos_operativos")
+        .update(payload)
+        .eq("id", id)
+        .select("id");
+
+    if (!isSchemaCacheColumnError(result.error)) {
+        return result;
+    }
+
+    const legacyPayload = { ...payload };
+    delete legacyPayload.litros_gasolina;
+
+    return supabaseClient
+        .from("gastos_operativos")
+        .update(legacyPayload)
+        .eq("id", id)
+        .select("id");
 }
 
 async function deleteReceiptFile(url) {
@@ -1457,7 +1604,7 @@ function renderTotals(rows) {
 
 function renderReceiptLink(url) {
     if (!url) return "-";
-    return `<a class="receipt-link" href="${escapeAttribute(url)}" target="_blank" rel="noopener">Ver</a>`;
+    return `<a class="receipt-link" href="${escapeAttribute(url)}" target="_blank" rel="noopener">Ver comprobante</a>`;
 }
 
 function getOperationalDetail(row) {
@@ -1467,8 +1614,16 @@ function getOperationalDetail(row) {
         details.push(row.detalle_actividad);
     }
 
+    if (row.vehiculo_nombre || row.vehiculo_placa) {
+        details.push([row.vehiculo_nombre, row.vehiculo_placa].filter(Boolean).join(" · "));
+    }
+
     if (row.kilometraje) {
         details.push(`${formatNumber(row.kilometraje, 0)} km`);
+    }
+
+    if (row.litros_gasolina) {
+        details.push(`${formatNumber(row.litros_gasolina, 2)} L`);
     }
 
     return details.join(" · ") || "-";
@@ -1496,7 +1651,10 @@ function exportExcel() {
         "Unidad divisa": getMoneyUnit(row.tipo_tasa),
         "Monto divisa": Number(row.monto_usd || 0),
         "Monto VES": Number(row.monto_ves || 0),
+        Vehiculo: row.vehiculo_nombre || "",
+        Placa: row.vehiculo_placa || "",
         Kilometraje: row.kilometraje || "",
+        "Litros gasolina": row.litros_gasolina || "",
         "Detalle actividad": row.detalle_actividad || "",
         Responsable: row.responsable || "",
         "Registrado por": row.user_email || "",
@@ -1504,18 +1662,167 @@ function exportExcel() {
         Comprobante: row.comprobante_url || ""
     }));
 
-    const worksheet = XLSX.utils.json_to_sheet(rows);
-    worksheet["!cols"] = [
-        { wch: 12 }, { wch: 28 }, { wch: 18 }, { wch: 14 }, { wch: 18 }, { wch: 14 },
-        { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 22 },
-        { wch: 16 }, { wch: 28 }, { wch: 36 }, { wch: 48 }
+    const detailWorksheet = XLSX.utils.json_to_sheet(rows);
+    detailWorksheet["!cols"] = [
+        { wch: 12 }, { wch: 34 }, { wch: 18 }, { wch: 14 }, { wch: 18 }, { wch: 14 },
+        { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 18 }, { wch: 12 },
+        { wch: 14 }, { wch: 16 }, { wch: 22 }, { wch: 16 }, { wch: 28 }, { wch: 36 }, { wch: 48 }
     ];
 
+    const summaryRows = buildExcelSummaryRows(state.historyRows);
+    const summaryWorksheet = XLSX.utils.aoa_to_sheet(summaryRows);
+    summaryWorksheet["!cols"] = [{ wch: 34 }, { wch: 18 }, { wch: 18 }, { wch: 14 }, { wch: 16 }];
+    summaryWorksheet["!rows"] = summaryRows.map((row, index) => ({ hpt: index === 0 ? 30 : index === 4 ? 28 : 20 }));
+    summaryWorksheet["!merges"] = buildSummaryMerges(summaryRows);
+    styleExcelSummary(summaryWorksheet, summaryRows);
+    styleExcelHeader(detailWorksheet, 19);
+
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Gastos");
+    XLSX.utils.book_append_sheet(workbook, summaryWorksheet, "Resumen");
+    XLSX.utils.book_append_sheet(workbook, detailWorksheet, "Detalle");
+    workbook.Workbook = {
+        Sheets: [
+            { name: "Resumen", Hidden: 0, TabColor: { rgb: "2563EB" } },
+            { name: "Detalle", Hidden: 0, TabColor: { rgb: "16A34A" } }
+        ]
+    };
 
     const filename = `reporte-gastos-${elements.fromDate.value || "inicio"}-a-${elements.toDate.value || "hoy"}.xlsx`;
     XLSX.writeFile(workbook, filename);
+}
+
+function buildExcelSummaryRows(rows) {
+    const totals = rows.reduce((acc, row) => {
+        acc.usd += Number(row.monto_usd || 0);
+        acc.ves += Number(row.monto_ves || 0);
+        acc.receipts += row.comprobante_url ? 1 : 0;
+        acc.count += 1;
+        acc.liters += Number(row.litros_gasolina || 0);
+        return acc;
+    }, { usd: 0, ves: 0, receipts: 0, count: 0, liters: 0 });
+
+    const categories = buildGroupedSummary(rows, (row) => row.categoria_nombre || "Sin categoria");
+    const responsibles = buildGroupedSummary(rows, (row) => row.responsable || "Sin responsable");
+    const vehicles = buildGroupedSummary(rows.filter((row) => row.vehiculo_nombre || row.vehiculo_placa), (row) => [row.vehiculo_nombre, row.vehiculo_placa].filter(Boolean).join(" - "));
+
+    return [
+        ["REPORTE EJECUTIVO DE GASTOS OPERATIVOS"],
+        [`Periodo evaluado: ${elements.fromDate.value || "inicio"} al ${elements.toDate.value || "hoy"}`],
+        [],
+        ["TOTAL DIVISA", "TOTAL VES", "REGISTROS", "COMPROBANTES", "LITROS GASOLINA"],
+        [Number(totals.usd.toFixed(2)), Number(totals.ves.toFixed(2)), totals.count, totals.receipts, Number(totals.liters.toFixed(2))],
+        [],
+        ["DISTRIBUCION POR CATEGORIA"],
+        ["Categoria", "USD", "VES", "Registros", "% USD"],
+        ...categories.map((row) => appendPercentage(row, totals.usd)),
+        [],
+        ["DISTRIBUCION POR RESPONSABLE"],
+        ["Responsable", "USD", "VES", "Registros", "% USD"],
+        ...responsibles.map((row) => appendPercentage(row, totals.usd)),
+        [],
+        ["DISTRIBUCION POR VEHICULO"],
+        ["Vehiculo / placa", "USD", "VES", "Registros", "% USD"],
+        ...(vehicles.length ? vehicles.map((row) => appendPercentage(row, totals.usd)) : [["Sin gastos asociados a vehiculos", 0, 0, 0, "0%"]]),
+        [],
+        ["Nota"],
+        ["La hoja Detalle contiene cada gasto individual con factura, pago, responsable y comprobante."]
+    ];
+}
+
+function buildSummaryMerges(rows) {
+    return rows.reduce((merges, row, index) => {
+        const label = String(row[0] || "");
+        if (index <= 1 || label === "DISTRIBUCION POR CATEGORIA" || label === "DISTRIBUCION POR RESPONSABLE" || label === "DISTRIBUCION POR VEHICULO" || label === "Nota") {
+            merges.push({ s: { r: index, c: 0 }, e: { r: index, c: 4 } });
+        }
+        return merges;
+    }, []);
+}
+
+function buildGroupedSummary(rows, keyGetter) {
+    const groups = rows.reduce((acc, row) => {
+        const key = keyGetter(row) || "Sin detalle";
+        if (!acc[key]) acc[key] = { usd: 0, ves: 0, count: 0 };
+        acc[key].usd += Number(row.monto_usd || 0);
+        acc[key].ves += Number(row.monto_ves || 0);
+        acc[key].count += 1;
+        return acc;
+    }, {});
+
+    return Object.entries(groups)
+        .sort(([, left], [, right]) => right.usd - left.usd)
+        .map(([name, value]) => [name, Number(value.usd.toFixed(2)), Number(value.ves.toFixed(2)), value.count]);
+}
+
+function appendPercentage(row, totalUsd) {
+    const percentage = totalUsd > 0 ? `${((Number(row[1] || 0) / totalUsd) * 100).toFixed(1)}%` : "0%";
+    return [...row, percentage];
+}
+
+function styleExcelSummary(worksheet, rows) {
+    const range = XLSX.utils.decode_range(worksheet["!ref"]);
+    const border = {
+        top: { style: "thin", color: { rgb: "D8E1EC" } },
+        right: { style: "thin", color: { rgb: "D8E1EC" } },
+        bottom: { style: "thin", color: { rgb: "D8E1EC" } },
+        left: { style: "thin", color: { rgb: "D8E1EC" } }
+    };
+    const kpiColors = ["2563EB", "16A34A", "F59E0B", "7C3AED", "0EA5E9"];
+    const kpiSoftColors = ["DBEAFE", "DCFCE7", "FEF3C7", "EDE9FE", "E0F2FE"];
+
+    for (let rowIndex = range.s.r; rowIndex <= range.e.r; rowIndex += 1) {
+        for (let colIndex = range.s.c; colIndex <= range.e.c; colIndex += 1) {
+            const address = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex });
+            if (!worksheet[address]) worksheet[address] = { t: "s", v: "" };
+
+            const value = String(worksheet[address].v || "");
+            worksheet[address].s = {
+                font: { name: "Calibri", sz: 11, color: { rgb: "1E293B" } },
+                alignment: { vertical: "center" },
+                border
+            };
+
+            if (rowIndex === 0) {
+                worksheet[address].s = { font: { name: "Calibri", bold: true, color: { rgb: "FFFFFF" }, sz: 18 }, fill: { fgColor: { rgb: "0F172A" } }, alignment: { horizontal: "center", vertical: "center" }, border };
+            } else if (rowIndex === 1) {
+                worksheet[address].s = { font: { name: "Calibri", bold: true, color: { rgb: "1D4ED8" }, sz: 12 }, fill: { fgColor: { rgb: "EFF6FF" } }, alignment: { horizontal: "center", vertical: "center" }, border };
+            } else if (rowIndex === 3) {
+                worksheet[address].s = { font: { name: "Calibri", bold: true, color: { rgb: "FFFFFF" }, sz: 11 }, fill: { fgColor: { rgb: kpiColors[colIndex] || "2563EB" } }, alignment: { horizontal: "center", vertical: "center" }, border };
+            } else if (rowIndex === 4) {
+                worksheet[address].s = { font: { name: "Calibri", bold: true, color: { rgb: "0F172A" }, sz: 14 }, fill: { fgColor: { rgb: kpiSoftColors[colIndex] || "DBEAFE" } }, alignment: { horizontal: "center", vertical: "center" }, border };
+            } else if (value === "RESUMEN GENERAL" || value === "DISTRIBUCION POR CATEGORIA" || value === "DISTRIBUCION POR RESPONSABLE" || value === "DISTRIBUCION POR VEHICULO" || value === "Nota") {
+                worksheet[address].s = { font: { name: "Calibri", bold: true, color: { rgb: "FFFFFF" }, sz: 12 }, fill: { fgColor: { rgb: "111827" } }, alignment: { horizontal: "left", vertical: "center" }, border };
+            } else if (["Categoria", "Responsable", "Vehiculo / placa"].includes(value)) {
+                const headerRow = rows[rowIndex] || [];
+                headerRow.forEach((_, index) => {
+                    const headerAddress = XLSX.utils.encode_cell({ r: rowIndex, c: index });
+                    if (!worksheet[headerAddress]) worksheet[headerAddress] = { t: "s", v: "" };
+                    worksheet[headerAddress].s = { font: { name: "Calibri", bold: true, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "2563EB" } }, alignment: { horizontal: index === 0 ? "left" : "center", vertical: "center" }, border };
+                });
+            } else if (colIndex === 0 && value) {
+                worksheet[address].s.font.bold = true;
+                worksheet[address].s.fill = { fgColor: { rgb: "F8FAFC" } };
+            } else if (colIndex > 0 && value) {
+                worksheet[address].s.alignment = { horizontal: "center", vertical: "center" };
+            }
+        }
+    }
+}
+
+function styleExcelHeader(worksheet, columnCount) {
+    const border = {
+        top: { style: "thin", color: { rgb: "C7D2FE" } },
+        right: { style: "thin", color: { rgb: "C7D2FE" } },
+        bottom: { style: "thin", color: { rgb: "C7D2FE" } },
+        left: { style: "thin", color: { rgb: "C7D2FE" } }
+    };
+
+    for (let colIndex = 0; colIndex < columnCount; colIndex += 1) {
+        const address = XLSX.utils.encode_cell({ r: 0, c: colIndex });
+        if (!worksheet[address]) continue;
+        worksheet[address].s = { font: { name: "Calibri", bold: true, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "166534" } }, alignment: { horizontal: "center", vertical: "center" }, border };
+    }
+    worksheet["!autofilter"] = { ref: worksheet["!ref"] };
 }
 
 function setPeriodDates(period) {
@@ -1545,13 +1852,16 @@ function setPeriodDates(period) {
 function resetFormState() {
     elements.fecha.value = toDateInput(new Date());
     elements.monedaUsd.checked = true;
+    state.lastMoneyInput = "USD";
     renderPaymentMethods("USD");
     updateMoneyInputLock();
     syncRateTypeToPayment(false);
     state.tempCategory = null;
     renderCategorias();
+    elements.vehiculoUnidad.value = "";
     elements.vehiculoDetalle.value = "";
     elements.kilometraje.value = "";
+    elements.litrosGasolina.value = "";
     elements.comidaDetalle.value = "";
     updateVehicleDetailVisibility();
     updateContextDetailVisibility();

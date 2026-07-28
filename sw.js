@@ -1,4 +1,4 @@
-const CACHE_NAME = "control-gastos-v32";
+const CACHE_NAME = "control-gastos-v46";
 const APP_ASSETS = [
   "./manifest.webmanifest",
   "./image.png"
@@ -18,6 +18,12 @@ self.addEventListener("activate", (event) => {
     ))
   );
   self.clients.claim();
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener("fetch", (event) => {
