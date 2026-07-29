@@ -4,6 +4,7 @@ const STATIC_CATEGORY_PREFIX = "static:";
 const BCV_RATE_STORAGE_KEY = "gastos_operativos_tasa_bcv";
 const BCV_EUR_RATE_STORAGE_KEY = "gastos_operativos_tasa_bcv_eur";
 const BINANCE_RATE_STORAGE_KEY = "gastos_operativos_tasa_binance";
+const EXPENSE_DRAFT_STORAGE_KEY = "gastos_operativos_borrador";
 const BCV_REFRESH_INTERVAL_MS = 30 * 60 * 1000;
 const PAYMENT_METHODS = {
     USD: ["Efectivo", "USDT", "Zelle", "Binance"],
@@ -37,6 +38,7 @@ const state = {
     selectedFile: null,
     tempCategory: null,
     syncingMoney: false,
+    restoringDraft: false,
     lastMoneyInput: "USD",
     switchingTab: false,
     currentUser: null,
@@ -308,6 +310,8 @@ async function init() {
 
     await Promise.all(startupTasks);
 
+    restoreExpenseDraft();
+
     setupBcvAutoRefresh();
     hidePageLoader();
 }
@@ -344,7 +348,12 @@ function bindEvents() {
     elements.montoUsd.addEventListener("input", () => syncMoney("USD"));
     elements.montoVes.addEventListener("input", () => syncMoney("VES"));
     elements.form.addEventListener("submit", saveExpense);
-    elements.form.addEventListener("reset", () => setTimeout(resetFormState, 0));
+    elements.form.addEventListener("input", saveExpenseDraft);
+    elements.form.addEventListener("change", saveExpenseDraft);
+    elements.form.addEventListener("reset", () => {
+        clearExpenseDraft();
+        setTimeout(resetFormState, 0);
+    });
     elements.periodFilter.addEventListener("change", () => {
         setPeriodDates(elements.periodFilter.value);
         loadHistorico();
@@ -824,6 +833,7 @@ async function createCategoryModal() {
     state.tempCategory = { id: null, nombre: result.value.nombre };
     renderCategorias(TEMP_CATEGORY_VALUE);
     elements.categoria.dataset.previous = TEMP_CATEGORY_VALUE;
+    saveExpenseDraft();
     await Swal.fire({ icon: "success", title: "Ítem temporal listo", text: "Después de guardar el gasto te preguntaré si deseas conservarlo como categoría fija.", timer: 1800, showConfirmButton: false });
 }
 
@@ -1151,6 +1161,7 @@ async function saveExpense(event) {
         if (error) throw error;
 
         await handlePostSaveCategoryPersistence(insertedExpense?.id);
+        clearExpenseDraft();
         elements.form.reset();
         resetFormState();
         if (state.isAdmin) {
@@ -1869,6 +1880,111 @@ function resetFormState() {
     elements.comprobanteInput.value = "";
     elements.filePreview.classList.remove("is-visible");
     elements.filePreview.innerHTML = "";
+}
+
+function saveExpenseDraft() {
+    if (state.restoringDraft || elements.categoria.value === NEW_CATEGORY_VALUE) return;
+
+    const draft = {
+        fecha: elements.fecha.value,
+        categoria: elements.categoria.value,
+        tempCategory: state.tempCategory,
+        vehiculoUnidad: elements.vehiculoUnidad.value,
+        vehiculoDetalle: elements.vehiculoDetalle.value,
+        kilometraje: elements.kilometraje.value,
+        litrosGasolina: elements.litrosGasolina.value,
+        comidaDetalle: elements.comidaDetalle.value,
+        moneda: getSelectedCurrency(),
+        formaPago: elements.formaPago.value,
+        tipoTasa: elements.tipoTasa.value,
+        tasaCambio: elements.tasaCambio.value,
+        montoUsd: elements.montoUsd.value,
+        montoVes: elements.montoVes.value,
+        numeroFactura: elements.numeroFactura.value,
+        descripcion: elements.descripcion.value,
+        responsable: document.querySelector('input[name="responsable"]:checked')?.value || "Ilver"
+    };
+
+    if (!hasExpenseDraftContent(draft)) {
+        clearExpenseDraft();
+        return;
+    }
+
+    localStorage.setItem(EXPENSE_DRAFT_STORAGE_KEY, JSON.stringify(draft));
+}
+
+function restoreExpenseDraft() {
+    const savedDraft = localStorage.getItem(EXPENSE_DRAFT_STORAGE_KEY);
+    if (!savedDraft) return;
+
+    let draft;
+    try {
+        draft = JSON.parse(savedDraft);
+    } catch (error) {
+        console.error(error);
+        clearExpenseDraft();
+        return;
+    }
+
+    if (!hasExpenseDraftContent(draft)) return;
+
+    state.restoringDraft = true;
+    state.tempCategory = draft.tempCategory?.nombre ? draft.tempCategory : null;
+    renderCategorias(isKnownCategoryValue(draft.categoria) ? draft.categoria : "");
+
+    elements.fecha.value = draft.fecha || toDateInput(new Date());
+    elements.vehiculoUnidad.value = draft.vehiculoUnidad || "";
+    updateVehicleDetailVisibility();
+    elements.vehiculoDetalle.value = draft.vehiculoDetalle || "";
+    updateContextDetailVisibility();
+    elements.kilometraje.value = draft.kilometraje || "";
+    elements.litrosGasolina.value = draft.litrosGasolina || "";
+    elements.comidaDetalle.value = draft.comidaDetalle || "";
+
+    elements.monedaUsd.checked = draft.moneda !== "VES";
+    elements.monedaVes.checked = draft.moneda === "VES";
+    renderPaymentMethods(getSelectedCurrency(), draft.formaPago);
+    syncPaymentMode();
+    syncRateTypeToPayment(false);
+    if (draft.tipoTasa && Array.from(elements.tipoTasa.options).some((option) => option.value === draft.tipoTasa)) {
+        elements.tipoTasa.value = draft.tipoTasa;
+    }
+    if (draft.tipoTasa === "MANUAL") {
+        elements.tasaCambio.value = draft.tasaCambio || "";
+    } else {
+        updateRateField(false);
+    }
+
+    elements.montoUsd.value = draft.montoUsd || "";
+    elements.montoVes.value = draft.montoVes || "";
+    elements.numeroFactura.value = draft.numeroFactura || "";
+    elements.descripcion.value = draft.descripcion || "";
+
+    const responsable = Array.from(document.querySelectorAll('input[name="responsable"]'))
+        .find((input) => input.value === (draft.responsable || "Ilver"));
+    if (responsable) responsable.checked = true;
+
+    updateCategoryActions();
+    state.restoringDraft = false;
+}
+
+function hasExpenseDraftContent(draft) {
+    return Boolean(
+        draft?.categoria ||
+        draft?.vehiculoUnidad ||
+        draft?.vehiculoDetalle ||
+        draft?.kilometraje ||
+        draft?.litrosGasolina ||
+        draft?.comidaDetalle ||
+        draft?.montoUsd ||
+        draft?.montoVes ||
+        draft?.numeroFactura ||
+        draft?.descripcion
+    );
+}
+
+function clearExpenseDraft() {
+    localStorage.removeItem(EXPENSE_DRAFT_STORAGE_KEY);
 }
 
 function setSubmitting(isSubmitting) {

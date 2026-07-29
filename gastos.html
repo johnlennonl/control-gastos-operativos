@@ -37,6 +37,10 @@
 
         * { box-sizing: border-box; }
 
+        [hidden] {
+            display: none !important;
+        }
+
         html {
             max-width: 100%;
             overflow-x: hidden;
@@ -1155,13 +1159,13 @@
 
         @media (max-width: 820px) {
             body {
-                padding-bottom: calc(78px + env(safe-area-inset-bottom));
+                padding-bottom: calc(132px + env(safe-area-inset-bottom));
             }
 
             .app-shell {
                 width: min(100% - 16px, 760px);
                 padding-top: 18px;
-                padding-bottom: 24px;
+                padding-bottom: 90px;
             }
 
             .topbar {
@@ -1597,8 +1601,8 @@
         </section>
     </main>
 
-    <script src="supabase-config.js?v=46"></script>
-    <script src="app-install.js?v=46"></script>
-    <script src="gastos.js?v=46"></script>
+    <script src="supabase-config.js?v=47"></script>
+    <script src="app-install.js?v=47"></script>
+    <script src="gastos.js?v=47"></script>
 </body>
 </html>
